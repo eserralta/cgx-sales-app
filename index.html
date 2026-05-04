@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ShopCGX Daily Sales</title>
+  <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Segoe UI, sans-serif; background: #0d1117; color: #e6edf3; }
+    .header { background: #003087; padding: 12px 20px; display: flex; align-items: center;
+      justify-content: space-between; border-bottom: 3px solid #CC0000; }
+    .header h1 { font-size: 18px; }
+    .header p  { font-size: 11px; color: #aabbd0; }
+    .login-wrap { display: flex; align-items: center; justify-content: center; min-height: 90vh; }
+    .login-box  { background: #161b22; border: 1px solid #21262d; border-radius: 10px;
+      padding: 36px; width: 380px; text-align: center; }
+    .ms-btn { width: 100%; background: #2a2f45; border: 1px solid #21262d; border-radius: 6px;
+      padding: 12px; color: #e6edf3; font-size: 15px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 20px; }
+    .ms-btn:hover { background: #363d5a; }
+    table { width: 100%; border-collapse: collapse; }
+    th { padding: 7px 8px; font-size: 11px; color: #c8d0e8; font-weight: 600;
+      border-bottom: 2px solid #CC0000; white-space: nowrap; }
+    td { padding: 3px 6px; border-bottom: 1px solid #21262d; }
+    input[type=number], input[type=text] {
+      background: #0d1f0d; color: #86efac; border: 1px solid #1e3a1e;
+      border-radius: 3px; padding: 3px 5px; font-size: 12px; width: 90px; text-align: right; }
+    input.note { background: #0d1120; color: #93c5fd; border-color: #1e2a4a; width: 100%; }
+    .kpi-strip { background: #161b22; padding: 8px 16px; display: flex; gap: 20px;
+      border-bottom: 1px solid #21262d; flex-wrap: wrap; }
+    .kpi label { font-size: 10px; color: #7d8590; display: block; }
+    .kpi span  { font-size: 15px; font-weight: 700; }
+    tfoot tr { background: #0e1e50; font-weight: 700; }
+    .btn { border: none; border-radius: 5px; padding: 7px 16px;
+      font-weight: 700; cursor: pointer; color: #fff; font-size: 13px; }
+    .pos { color: #4ade80; } .neg { color: #f87171; } .neu { color: #9ca3af; }
+    .user-badge { background: #21262d; border-radius: 20px; padding: 4px 12px;
+      font-size: 12px; display: flex; align-items: center; gap: 8px; }
+    select { background: #0d1117; color: #e6edf3; border: 1px solid #21262d;
+      border-radius: 4px; padding: 4px 8px; font-size: 12px; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="login-wrap">
+    <div class="login-box">
+      <div style="font-size:40px;margin-bottom:10px">⚓</div>
+      <h2 style="margin-bottom:4px">ShopCGX</h2>
+      <p style="color:#7d8590;font-size:13px">Daily Sales Reporting Portal</p>
+      <button class="ms-btn" onclick="signIn()">
+        <svg width="20" height="20" viewBox="0 0 21 21">
+          <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+          <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+          <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+          <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+        </svg>
+        Sign in with Microsoft
+      </button>
+      <p style="font-size:11px;color:#7d8590;margin-top:14px">🔒 Secured via Azure Active Directory</p>
+      <p id="login-error" style="color:#f87171;font-size:12px;margin-top:10px;display:none"></p>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── AZURE AD CONFIG ────────────────────────────────────────────
+const msalConfig = {
+  auth: {
+    clientId: "4de9db22-ed7f-4b79-86e5-5458308cfd12",
+    authority: "https://login.microsoftonline.com/5747c718-2c8c-4815-96e9-4f607dcf1f51",
+    redirectUri: window.location.origin + window.location.pathname,
+  },
+  cache: { cacheLocation: "sessionStorage" }
+};
+const msalInstance = new msal.PublicClientApplication(msalConfig);
+
+// ─── 4-5-4 RETAIL CALENDAR ──────────────────────────────────────
+const PERIOD_WEEKS = [4,5,4,4,5,4,4,5,4,4,5,4];
+const PERIOD_NAMES = ["February","March","April","May","June","July","August","September","October","November","December","January"];
+const QUARTER_LABELS = ["Q1","Q1","Q1","Q2","Q2","Q2","Q3","Q3","Q3","Q4","Q4","Q4"];
+const MABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function getFYStart(fy) {
+  const feb1 = new Date(fy, 1, 1);
+  const dow = feb1.getDay();
+  const back = dow;
+  const fwd = (7 - dow) % 7;
+  const offset = back <= fwd ? -back : fwd;
+  const d = new Date(feb1);
+  d.setDate(d.getDate() + offset);
+  return d;
+}
+
+function getFiscalPeriods(fy) {
+  const start = getFYStart(fy), periods = [];
+  let cur = new Date(start);
+  for (let i = 0; i < 12; i++) {
+    const pStart = new Date(cur), days = PERIOD_WEEKS[i] * 7;
+    const pEnd = new Date(cur);
+    pEnd.setDate(pEnd.getDate() + days - 1);
+    periods.push({ num: i+1, label: PERIOD_NAMES[i], quarter: QUARTER_LABELS[i], weeks: PERIOD_WEEKS[i], start: pStart, end: pEnd });
+    cur.setDate(cur.getDate() + days);
+  }
+  return periods;
+}
+
+function getDatesForPeriod(fy, period) {
+  const p = getFiscalPeriods(fy)[period - 1];
+  const dates = [], d = new Date(p.start);
+  while (d <= p.end) { dates.push(new Date(d)); d.setDate(d.getDate() + 1); }
+  return dates;
+}
+
+function fmtDate(d) { return `${d.getDate()}-${MABBR[d.getMonth()]}`; }
+function fmtRange(p) { return `${fmtDate(p.start)} – ${fmtDate(p.end)}`; }
+function fmtC(v) { return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(parseFloat(v)||0); }
+function vc(v) { return v > 0 ? "#4ade80" : v < 0 ? "#f87171" : "#9ca3af"; }
+
+// ─── STORE EMAIL MAP ────────────────────────────────────────────
+const STORE_MAP = {
+  // Region 1 — Terri Amory
+  "alison.matthews@cgexchange.org":      {id:"371", name:"371 Charleston"},
+  "alexandra.knotts@cgexchange.org":     {id:"451", name:"451 Yorktown Main"},
+  "christine.jordan@cgexchange.org":     {id:"456", name:"456 St. Elizabeth"},
+  "brian.cabacungan@cgexchange.org":     {id:"457", name:"457 Elizabeth City"},
+  "jacqueline.caballero@cgexchange.org": {id:"459", name:"459 Centreville"},
+  "tara.flores@cgexchange.org":          {id:"461", name:"461 Fort Macon"},
+  "stacy.pascarosa@cgexchange.org":      {id:"462", name:"462 Portsmouth"},
+  "marilou.balingit@cgexchange.org":     {id:"463", name:"463 FinCen"},
+  "adrienne.carey@cgexchange.org":       {id:"901", name:"901 Chesapeake"},
+  // Region 2 — Michele Taylor
+  "pacific.connole@cgexchange.org":      {id:"201", name:"201 ATC Mobile"},
+  "valerie.new@cgexchange.org":          {id:"211", name:"211 Base Mobile"},
+  "crystal.locure@cgexchange.org":       {id:"222", name:"222 Michoud"},
+  "david.bradley@cgexchange.org":        {id:"301", name:"301 St. Petersburg"},
+  "jeff.ely@cgexchange.org":             {id:"311", name:"311 Fort Myers"},
+  "martha.breyley@cgexchange.org":       {id:"313", name:"313 Cortez"},
+  "teresa.allgeier@cgexchange.org":      {id:"321", name:"321 Clearwater"},
+  "nestor.pastora@cgexchange.org":       {id:"331", name:"331 Opa Locka"},
+  "juan.velez@cgexchange.org":           {id:"341", name:"341 Miami Beach"},
+  "jessica.brandt@cgexchange.org":       {id:"381", name:"381 Mayport"},
+  "alecia.watts@cgexchange.org":         {id:"383", name:"383 Cape Canaveral"},
+  // Region 3 — Ty Lindsey
+  "william.yonush@cgexchange.org":       {id:"401", name:"401 Academy Main"},
+  "megan.crocker@cgexchange.org":        {id:"402", name:"402 Academy Tailor"},
+  "charlotte.labranche@cgexchange.org":  {id:"403", name:"403 Academy Bookstore"},
+  "tom.salatto@cgexchange.org":          {id:"408", name:"408 New Haven"},
+  "john.west@cgexchange.org":            {id:"411", name:"411 Westhampton Beach"},
+  "brenda.kaler@cgexchange.org":         {id:"423", name:"423 Rockland"},
+  "colleen.rounsavall@cgexchange.org":   {id:"424", name:"424 Southwest Harbor"},
+  "lori.kluender@cgexchange.org":        {id:"425", name:"425 Boston"},
+  "cynthia.orourke@cgexchange.org":      [{id:"431", name:"431 Cape Cod Main"}, {id:"432", name:"432 Cape Cod Minimart"}],
+  "joan.basile@cgexchange.org":          [{id:"441", name:"441 Cape May Exchange"}, {id:"442", name:"442 Cape May Laundry"}],
+  "jourdan.gaston@cgexchange.org":       {id:"446", name:"446 Fort Wadsworth"},
+  "bryan.guy@cgexchange.org":            {id:"454", name:"454 Baltimore"},
+  // Region 4 — Nick Swango
+  "jennifer.szymczak@cgexchange.org":    {id:"101", name:"101 Otto Graham"},
+  "michael.valentino@cgexchange.org":    [{id:"103", name:"103 Cleveland Mooring"}, {id:"104", name:"104 Federal Bldg."}],
+  "ashley.gainey@cgexchange.org":        {id:"105", name:"105 Buffalo"},
+  "jennifer.burgos@cgexchange.org":      {id:"107", name:"107 Toledo"},
+  "michelle.rogan@cgexchange.org":       {id:"109", name:"109 Detroit"},
+  "melody.doyle@cgexchange.org":         {id:"110", name:"110 Sault Ste. Marie"},
+  "lyndell.luster@cgexchange.org":       {id:"111", name:"111 Traverse City"},
+  "rena.chartier@cgexchange.org":        {id:"112", name:"112 Grand Haven"},
+  "shawn.voges@cgexchange.org":          {id:"231", name:"231 Galveston"},
+  "arista.duhon@cgexchange.org":         {id:"233", name:"233 Ellington Field"},
+  // Region 5 — Melissa Lacambra
+  "nick.williams@cgexchange.org":        {id:"501", name:"501 Kodiak"},
+  "terry.smith@cgexchange.org":          {id:"511", name:"511 Ketchikan"},
+  "leslie.baird@cgexchange.org":         {id:"601", name:"601 Astoria"},
+  "angela.jobe-quiling@cgexchange.org":  {id:"603", name:"603 Portland"},
+  "etrid.sherwood@cgexchange.org":       {id:"611", name:"611 Seattle"},
+  "tara.west@cgexchange.org":            {id:"612", name:"612 Port Angeles"},
+  "heather.caudle@cgexchange.org":       {id:"621", name:"621 Coos Bay"},
+  "lisa.tracy@cgexchange.org":           {id:"631", name:"631 Alameda"},
+  "briana.bergier@cgexchange.org":       {id:"632", name:"632 San Diego"},
+  "michael.sumaron@cgexchange.org":      {id:"634", name:"634 San Pedro"},
+  "emily.clark@cgexchange.org":          {id:"651", name:"651 Petaluma"},
+  "robert.balagtas@cgexchange.org":      {id:"662", name:"662 Honolulu"},
+  // Region 6 — Jennifer Liston
+  "orlando.plaza@cgexchange.org":        {id:"391", name:"391 Borinquen"},
+  "edward.maldonado@cgexchange.org":     {id:"395", name:"395 Caguas"},
+  "elizabeth.santiago@cgexchange.org":   {id:"397", name:"397 San Juan"},
+  // Admin
+  "ednali.serralta@cgexchange.org":      {id:"admin-hq",  name:"Ednali Serralta",  isAdmin:true, region:null},
+  "terri.amory@cgexchange.org":          {id:"admin-r1",  name:"Terri Amory",      isAdmin:true, region:"Region 1"},
+  "michele.taylor@cgexchange.org":       {id:"admin-r2",  name:"Michele Taylor",   isAdmin:true, region:"Region 2"},
+  "ty.lindsey@cgexchange.org":           {id:"admin-r3",  name:"Ty Lindsey",       isAdmin:true, region:"Region 3"},
+  "nick.swango@cgexchange.org":          {id:"admin-r4",  name:"Nick Swango",      isAdmin:true, region:"Region 4"},
+  "melissa.lacambra@cgexchange.org":     {id:"admin-r5",  name:"Melissa Lacambra", isAdmin:true, region:"Region 5"},
+  "jennifer.liston@cgexchange.org":      {id:"admin-r6",  name:"Jennifer Liston",  isAdmin:true, region:"Region 6"},
+};
+
+// ─── AUTH ────────────────────────────────────────────────────────
+async function signIn() {
+  try {
+    const result = await msalInstance.loginPopup({ scopes: ["User.Read"] });
+    const email = result.account.username.toLowerCase();
+    const match = STORE_MAP[email];
+    if (!match) {
+      document.getElementById("login-error").style.display = "block";
+      document.getElementById("login-error").textContent = `Account ${email} is not mapped to a store. Contact your administrator.`;
+      return;
+    }
+    if (match.isAdmin) { renderApp(match, result.account.name); return; }
+    if (Array.isArray(match)) { showStorePicker(match, result.account.name); return; }
+    renderApp(match, result.account.name);
+  } catch(e) {
+    console.error(e);
+    document.getElementById("login-error").style.display = "block";
+    document.getElementById("login-error").textContent = "Sign-in failed. Please try again.";
+  }
+}
+
+msalInstance.handleRedirectPromise().then(result => {
+  if (result) {
+    const email = result.account.username.toLowerCase();
+    const match = STORE_MAP[email];
+    if (match) {
+      if (match.isAdmin) renderApp(match, result.account.name);
+      else if (Array.isArray(match)) showStorePicker(match, result.account.name);
+      else renderApp(match, result.account.name);
+    }
+  }
+});
+
+function showStorePicker(stores, displayName) {
+  document.getElementById("app").innerHTML = `
+    <div style="background:#0d1117;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:Segoe UI,sans-serif;">
+      <div style="background:#161b22;border:1px solid #21262d;border-radius:10px;padding:28px;width:360px;text-align:center;">
+        <div style="font-size:28px;margin-bottom:8px">⚓</div>
+        <p style="color:#e6edf3;font-weight:700;margin-bottom:4px">Welcome, ${displayName}</p>
+        <p style="color:#7d8590;font-size:13px;margin-bottom:20px">You manage multiple stores. Select one:</p>
+        ${stores.map(s=>`
+          <button onclick='renderApp(${JSON.stringify(s)}, "${displayName}")'
+            style="display:block;width:100%;background:#1c2333;border:1px solid #21262d;border-radius:6px;
+            padding:12px;color:#e6edf3;font-size:14px;cursor:pointer;margin-bottom:8px;text-align:left;">
+            🏪 ${s.name}
+          </button>`).join("")}
+      </div>
+    </div>`;
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────
+function getCurrentFiscalPeriod() {
+  const now = new Date();
+  for (let y = 2025; y <= 2027; y++) {
+    const ps = getFiscalPeriods(y);
+    for (const p of ps) { if (now >= p.start && now <= p.end) return { fy: y, period: p.num }; }
+  }
+  return { fy: 2026, period: 1 };
+}
+
+// ─── RENDER APP ───────────────────────────────────────────────────
+function renderApp(user, displayName) {
+  const { fy, period } = getCurrentFiscalPeriod();
+  const periods = getFiscalPeriods(fy);
+
+  document.getElementById("app").innerHTML = `
+    <div class="header">
+      <div>
+        <h1>⚓ ShopCGX ${user.isAdmin ? "Admin Dashboard" : "Sales Entry — " + user.name}</h1>
+        <p>Coast Guard Exchange · Daily Sales Reporting · ${displayName}</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:9px;color:#aabbd0;margin-bottom:2px">FISCAL YEAR</div>
+          <select id="sel-fy" onchange="refreshView('${user.id}','${displayName}',${JSON.stringify(user)})" style="min-width:80px">
+            ${[2025,2026,2027].map(y=>`<option value="${y}" ${y===fy?"selected":""}>${y}</option>`).join("")}
+          </select>
+        </div>
+        <div>
+          <div style="font-size:9px;color:#aabbd0;margin-bottom:2px">PERIOD</div>
+          <select id="sel-period" onchange="refreshView('${user.id}','${displayName}',${JSON.stringify(user)})" style="min-width:220px">
+            ${periods.map(p=>`<option value="${p.num}" ${p.num===period?"selected":""}>${p.quarter} · P${p.num} ${p.label} (${fmtRange(p)}, ${p.weeks}wk)</option>`).join("")}
+          </select>
+        </div>
+        <div class="user-badge">👤 ${displayName}</div>
+        <button class="btn" style="background:#21262d;color:#7d8590" onclick="location.reload()">Sign out</button>
+      </div>
+    </div>
+    <div id="view-container"></div>
+  `;
+  refreshView(user.id, displayName, user);
+}
+
+// ─── REFRESH VIEW ─────────────────────────────────────────────────
+async function refreshView(storeId, displayName, user) {
+  if (typeof user === "string") user = JSON.parse(user);
+  const fy     = +document.getElementById("sel-fy").value;
+  const period = +document.getElementById("sel-period").value;
+  const periods = getFiscalPeriods(fy);
+  const pInfo   = periods[period - 1];
+  const dates   = getDatesForPeriod(fy, period);
+  const mKey    = `fy${fy}-p${period}`;
+  const sKey    = `store:${storeId}:${mKey}`;
+
+  // Load data from sessionStorage (replace with SharePoint List API for production)
+  const raw  = sessionStorage.getItem(sKey);
+  const data = raw ? JSON.parse(raw) : {};
+  const admRaw  = sessionStorage.getItem(`adm:${mKey}:${storeId}`);
+  const admData = admRaw ? JSON.parse(admRaw) : {};
+
+  if (user.isAdmin) {
+    renderAdminView(user, displayName, dates, mKey, pInfo, fy, period);
+  } else {
+    renderStoreView(user, displayName, dates, mKey, sKey, pInfo, data, admData, fy, period);
+  }
+}
+
+// ─── STORE VIEW ───────────────────────────────────────────────────
+function renderStoreView(user, displayName, dates, mKey, sKey, pInfo, data, admData, fy, period) {
+  const calc = ds => {
+    const r=data[ds]||{}, a=admData[ds]||{};
+    const ss=parseFloat(r.ss)||0, cx=parseFloat(r.cx)||0, gs=parseFloat(r.gs)||0, tot=ss+cx;
+    const ly=parseFloat(a.ly)||0, plan=parseFloat(a.plan)||0;
+    return {ss,cx,gs,tot,totG:tot+gs,ly,plan,vLY:tot-ly,vPlan:tot-plan};
+  };
+  const T = dates.reduce((a,d)=>{
+    const c=calc(fmtDate(d));
+    return {ss:a.ss+c.ss,cx:a.cx+c.cx,tot:a.tot+c.tot,gs:a.gs+c.gs,totG:a.totG+c.totG,
+      ly:a.ly+c.ly,plan:a.plan+c.plan,vLY:a.vLY+c.vLY,vPlan:a.vPlan+c.vPlan};
+  },{ss:0,cx:0,tot:0,gs:0,totG:0,ly:0,plan:0,vLY:0,vPlan:0});
+
+  document.getElementById("view-container").innerHTML = `
+    <div class="kpi-strip">
+      <div class="kpi"><label>PTD SALES</label><span class="pos">${fmtC(T.tot)}</span></div>
+      <div class="kpi"><label>PTD PLAN</label><span style="color:#fbbf24">${T.plan>0?fmtC(T.plan):"—"}</span></div>
+      <div class="kpi"><label>VAR TO PLAN</label><span style="color:${vc(T.vPlan)}">${T.plan>0?fmtC(T.vPlan):"—"}</span></div>
+      <div class="kpi"><label>PTD LY</label><span style="color:#60a5fa">${T.ly>0?fmtC(T.ly):"—"}</span></div>
+      <div class="kpi"><label>VAR TO LY</label><span style="color:${vc(T.vLY)}">${T.ly>0?fmtC(T.vLY):"—"}</span></div>
+      <div class="kpi"><label>DAYS ENTERED</label><span style="color:#7d8590">${dates.filter(d=>calc(fmtDate(d)).tot>0).length}/${dates.length}</span></div>
+      <div style="margin-left:auto;display:flex;align-items:center;">
+        <button class="btn" id="save-btn" style="background:#CC0000" onclick="saveData('${sKey}')">💾 Save</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+    <table>
+      <thead><tr style="background:#0e1e50">
+        <th style="text-align:left">Date</th>
+        <th style="text-align:right">Store Sales</th>
+        <th style="text-align:right">CGXpress</th>
+        <th style="text-align:right">Total Sales</th>
+        <th style="text-align:right">Plan</th>
+        <th style="text-align:right">LY Sales</th>
+        <th style="text-align:right">Var to LY</th>
+        <th style="text-align:right">Var to Plan</th>
+        <th style="text-align:right">Gas Sales</th>
+        <th style="text-align:right">Total w/Gas</th>
+        <th style="text-align:left;min-width:160px">Anomalies / Comments</th>
+        <th style="text-align:right">Txn #</th>
+      </tr></thead>
+      <tbody>
+        ${dates.map((d,i)=>{
+          const ds=fmtDate(d), r=data[ds]||{}, c=calc(ds);
+          const wk=d.getDay()===0||d.getDay()===6;
+          const dayNum=Math.floor((d-pInfo.start)/(1000*60*60*24));
+          const weekStart=dayNum%7===0;
+          return `<tr style="background:${wk?"#1a1c30":i%2===0?"#161b22":"#1c2333"};border-bottom:${weekStart&&i>0?"2px solid #2a3a5a":"1px solid #21262d"}">
+            <td style="padding:3px 8px;font-weight:600;white-space:nowrap;color:${wk?"#818cf8":"#e6edf3"}">${ds}${weekStart&&i>0?`<span style="font-size:9px;color:#7d8590;margin-left:4px">W${Math.floor(dayNum/7)+1}</span>`:""}</td>
+            <td><input type="number" value="${r.ss||""}" onchange="updateField('${ds}','ss',this.value)" placeholder="0.00" style="width:90px"></td>
+            <td><input type="number" value="${r.cx||""}" onchange="updateField('${ds}','cx',this.value)" placeholder="0.00" style="width:80px"></td>
+            <td style="text-align:right;color:${c.tot>0?"#4ade80":"#4b5563"}">${fmtC(c.tot)}</td>
+            <td style="text-align:right;color:#fbbf24">${c.plan>0?fmtC(c.plan):"<span style='color:#374151'>—</span>"}</td>
+            <td style="text-align:right;color:#60a5fa">${c.ly>0?fmtC(c.ly):"<span style='color:#374151'>—</span>"}</td>
+            <td style="text-align:right;color:${vc(c.vLY)}">${c.ly>0?fmtC(c.vLY):"<span style='color:#374151'>—</span>"}</td>
+            <td style="text-align:right;color:${vc(c.vPlan)}">${c.plan>0?fmtC(c.vPlan):"<span style='color:#374151'>—</span>"}</td>
+            <td><input type="number" value="${r.gs||""}" onchange="updateField('${ds}','gs',this.value)" placeholder="0.00" style="width:80px"></td>
+            <td style="text-align:right;color:#67e8f9">${fmtC(c.totG)}</td>
+            <td><input type="text" class="note" value="${r.notes||""}" onchange="updateField('${ds}','notes',this.value)" placeholder="Notes, anomalies..."></td>
+            <td><input type="number" value="${r.txn||""}" onchange="updateField('${ds}','txn',this.value)" placeholder="0" style="width:55px"></td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+      <tfoot><tr>
+        <td style="padding:7px 8px;color:#CC0000;font-weight:800">TOTALS</td>
+        <td style="text-align:right;color:#4ade80;padding:7px 6px">${fmtC(T.ss)}</td>
+        <td style="text-align:right;color:#4ade80;padding:7px 6px">${fmtC(T.cx)}</td>
+        <td style="text-align:right;color:#4ade80;padding:7px 6px">${fmtC(T.tot)}</td>
+        <td style="text-align:right;color:#fbbf24;padding:7px 6px">${fmtC(T.plan)}</td>
+        <td style="text-align:right;color:#60a5fa;padding:7px 6px">${fmtC(T.ly)}</td>
+        <td style="text-align:right;padding:7px 6px;color:${vc(T.vLY)}">${fmtC(T.vLY)}</td>
+        <td style="text-align:right;padding:7px 6px;color:${vc(T.vPlan)}">${fmtC(T.vPlan)}</td>
+        <td style="text-align:right;color:#67e8f9;padding:7px 6px">${fmtC(T.gs)}</td>
+        <td style="text-align:right;color:#67e8f9;padding:7px 6px">${fmtC(T.totG)}</td>
+        <td colspan="2"></td>
+      </tr></tfoot>
+    </table>
+    </div>`;
+
+  window._currentSKey = sKey;
+  window._editBuffer  = {};
+}
+
+function updateField(ds, field, val) {
+  if (!window._editBuffer) window._editBuffer = {};
+  if (!window._editBuffer[ds]) window._editBuffer[ds] = {};
+  window._editBuffer[ds][field] = val;
+}
+
+async function saveData(sKey) {
+  const btn = document.getElementById("save-btn");
+  btn.textContent = "Saving...";
+  const existing = JSON.parse(sessionStorage.getItem(sKey)||"{}");
+  for (const [ds, fields] of Object.entries(window._editBuffer||{})) {
+    existing[ds] = { ...(existing[ds]||{}), ...fields };
+  }
+  sessionStorage.setItem(sKey, JSON.stringify(existing));
+  // TODO: Replace sessionStorage with SharePoint List POST via Graph API
+  window._editBuffer = {};
+  btn.textContent = "✓ Saved!";
+  btn.style.background = "#166534";
+  setTimeout(()=>{ btn.textContent="💾 Save"; btn.style.background="#CC0000"; }, 2500);
+}
+
+// ─── ADMIN VIEW (placeholder — connect SharePoint List for full data) ──
+function renderAdminView(user, displayName, dates, mKey, pInfo, fy, period) {
+  document.getElementById("view-container").innerHTML = `
+    <div style="padding:20px">
+      <div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:20px;color:#7d8590;font-size:13px;text-align:center;">
+        <p style="font-size:16px;color:#e6edf3;margin-bottom:8px">✅ Azure AD Login Working</p>
+        <p>Welcome, <strong style="color:#fbbf24">${displayName}</strong> — Admin access confirmed.</p>
+        <p style="margin-top:12px">To display the full admin dashboard here, IT needs to connect this app to a <strong style="color:#e6edf3">SharePoint List</strong> via the Microsoft Graph API.</p>
+        <p style="margin-top:8px;font-size:11px">Current period: FY${fy} P${period} ${pInfo.label} · ${fmtRange(pInfo)}</p>
+      </div>
+    </div>`;
+}
+</script>
+</body>
+</html>
