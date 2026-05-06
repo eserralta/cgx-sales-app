@@ -1,44 +1,138 @@
-import { useState, useEffect } from "react";
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import * as XLSX from "xlsx";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ShopCGX Daily Sales</title>
+  <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Segoe UI,sans-serif;background:#0d1117;color:#e6edf3;font-size:13px}
+    select{background:#0d1117;color:#e6edf3;border:1px solid #21262d;border-radius:4px;padding:4px 8px;font-size:12px}
+    input[type=number],input[type=text]{background:#0d1f0d;color:#86efac;border:1px solid #1e3a1e;border-radius:3px;padding:3px 5px;font-size:12px;width:90px;text-align:right}
+    input.note{background:#0d1120;color:#93c5fd;border-color:#1e2a4a;width:100%;text-align:left}
+    input.adm-ly{background:#1f0808;color:#fca5a5;border:1px solid #3a1010;border-radius:3px;padding:2px 6px;font-size:12px;width:100px;text-align:right}
+    input.adm-plan{background:#0a1f0a;color:#86efac;border:1px solid #1e3a1e;border-radius:3px;padding:2px 6px;font-size:12px;width:100px;text-align:right}
+    table{width:100%;border-collapse:collapse}
+    th{padding:7px 8px;font-size:11px;color:#c8d0e8;font-weight:600;border-bottom:2px solid #CC0000;white-space:nowrap}
+    td{padding:4px 6px;border-bottom:1px solid #21262d}
+    tfoot tr{background:#0e1e50;font-weight:700}
+    .header{background:#003087;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #CC0000;flex-wrap:wrap;gap:8px}
+    .kpi-strip{background:#161b22;padding:8px 16px;display:flex;gap:20px;border-bottom:1px solid #21262d;flex-wrap:wrap}
+    .kpi label{font-size:10px;color:#7d8590;display:block}
+    .kpi span{font-size:15px;font-weight:700}
+    .btn{border:none;border-radius:5px;padding:7px 14px;font-weight:700;cursor:pointer;color:#fff;font-size:12px}
+    .tab-bar{background:#161b22;padding:8px 16px;display:flex;gap:8px;border-bottom:1px solid #21262d;flex-wrap:wrap}
+    .tab-btn{border:1px solid #21262d;border-radius:4px;padding:6px 12px;cursor:pointer;font-weight:400;font-size:12px;color:#e6edf3;background:#21262d}
+    .tab-btn.active{background:#CC0000;border-color:#CC0000;font-weight:700}
+    .card{background:#161b22;border:1px solid #21262d;border-radius:8px;padding:14px}
+    .login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh}
+    .login-box{background:#161b22;border:1px solid #21262d;border-radius:10px;padding:28px;width:480px}
+    .ms-btn{width:100%;background:#2a2f45;border:1px solid #21262d;border-radius:6px;padding:11px;color:#e6edf3;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-top:16px}
+    .ms-btn:hover{background:#363d5a}
+    .store-row{padding:6px 10px;margin-bottom:3px;border-radius:5px;cursor:pointer;border:1px solid #21262d;color:#e6edf3;font-size:12px;display:flex;justify-content:space-between;align-items:center}
+    .store-row:hover{background:#1c2333}
+    .badge{font-size:10px;padding:1px 6px;border-radius:10px}
+    .drop-zone{border:2px dashed #21262d;border-radius:8px;padding:24px;text-align:center;cursor:pointer;transition:all 0.2s}
+    .drop-zone.over{background:#1a2a3a;border-color:#003087}
+    details summary{background:#161b22;border:1px solid #21262d;border-radius:6px;padding:7px 12px;cursor:pointer;font-weight:600;font-size:13px;list-style:none;display:flex;justify-content:space-between}
+    details[open] summary{border-radius:6px 6px 0 0}
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="login-wrap">
+    <div class="login-box" style="text-align:center">
+      <div style="font-size:40px;margin-bottom:8px">⚓</div>
+      <h2 style="margin-bottom:4px">ShopCGX</h2>
+      <p style="color:#7d8590;font-size:13px">Daily Sales Reporting Portal</p>
+      <button class="ms-btn" onclick="signIn()">
+        <svg width="20" height="20" viewBox="0 0 21 21"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
+        Sign in with Microsoft
+      </button>
+      <p style="font-size:11px;color:#7d8590;margin-top:12px">🔒 Secured via Azure Active Directory</p>
+      <p id="login-error" style="color:#f87171;font-size:12px;margin-top:10px;display:none"></p>
+    </div>
+  </div>
+</div>
 
-const RED="#CC0000",BLUE="#003087",DARK="#0d1117",CARD="#161b22",BORDER="#21262d",TEXT="#e6edf3",MUTED="#7d8590";
-const MABBR=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const ROLE_COLORS={admin:"#fbbf24",manager:"#60a5fa",lead:"#a3e635"};
-const ROLE_LABELS={admin:"Admin",manager:"Manager",lead:"Lead"};
-const sel_s={background:"#0d1117",color:TEXT,border:`1px solid ${BORDER}`,borderRadius:4,padding:"4px 8px",fontSize:12};
+<script>
+// ─── AZURE AD ────────────────────────────────────────────────
+const msalConfig={auth:{clientId:"4de9db22-ed7f-4b79-86e5-5458308cfd12",authority:"https://login.microsoftonline.com/5747c718-2c8c-4815-96e9-4f607dcf1f51",redirectUri:window.location.origin+window.location.pathname},cache:{cacheLocation:"sessionStorage"}};
+const msalInstance=new msal.PublicClientApplication(msalConfig);
 
-const PERIOD_WEEKS=[4,5,4,4,5,4,4,5,4,4,5,4];
-const PERIOD_NAMES=["February","March","April","May","June","July","August","September","October","November","December","January"];
-const QUARTER_LABELS=["Q1","Q1","Q1","Q2","Q2","Q2","Q3","Q3","Q3","Q4","Q4","Q4"];
+// ─── STORE EMAIL MAP ─────────────────────────────────────────
+const STORE_MAP={
+  "alison.matthews@cgexchange.org":{id:"371",name:"371 Charleston"},
+  "alexandra.knotts@cgexchange.org":{id:"451",name:"451 Yorktown Main"},
+  "christine.jordan@cgexchange.org":{id:"456",name:"456 St. Elizabeth"},
+  "brian.cabacungan@cgexchange.org":{id:"457",name:"457 Elizabeth City"},
+  "jacqueline.caballero@cgexchange.org":{id:"459",name:"459 Centreville"},
+  "tara.flores@cgexchange.org":{id:"461",name:"461 Fort Macon"},
+  "stacy.pascarosa@cgexchange.org":{id:"462",name:"462 Portsmouth"},
+  "marilou.balingit@cgexchange.org":{id:"463",name:"463 FinCen"},
+  "adrienne.carey@cgexchange.org":{id:"901",name:"901 Chesapeake"},
+  "pacific.connole@cgexchange.org":{id:"201",name:"201 ATC Mobile"},
+  "valerie.new@cgexchange.org":{id:"211",name:"211 Base Mobile"},
+  "crystal.locure@cgexchange.org":{id:"222",name:"222 Michoud"},
+  "david.bradley@cgexchange.org":{id:"301",name:"301 St. Petersburg"},
+  "jeff.ely@cgexchange.org":{id:"311",name:"311 Fort Myers"},
+  "martha.breyley@cgexchange.org":{id:"313",name:"313 Cortez"},
+  "teresa.allgeier@cgexchange.org":{id:"321",name:"321 Clearwater"},
+  "nestor.pastora@cgexchange.org":{id:"331",name:"331 Opa Locka"},
+  "juan.velez@cgexchange.org":{id:"341",name:"341 Miami Beach"},
+  "jessica.brandt@cgexchange.org":{id:"381",name:"381 Mayport"},
+  "alecia.watts@cgexchange.org":{id:"383",name:"383 Cape Canaveral"},
+  "william.yonush@cgexchange.org":{id:"401",name:"401 Academy Main"},
+  "megan.crocker@cgexchange.org":{id:"402",name:"402 Academy Tailor"},
+  "charlotte.labranche@cgexchange.org":{id:"403",name:"403 Academy Bookstore"},
+  "tom.salatto@cgexchange.org":{id:"408",name:"408 New Haven"},
+  "john.west@cgexchange.org":{id:"411",name:"411 Westhampton Beach"},
+  "brenda.kaler@cgexchange.org":{id:"423",name:"423 Rockland"},
+  "colleen.rounsavall@cgexchange.org":{id:"424",name:"424 Southwest Harbor"},
+  "lori.kluender@cgexchange.org":{id:"425",name:"425 Boston"},
+  "cynthia.orourke@cgexchange.org":[{id:"431",name:"431 Cape Cod Main"},{id:"432",name:"432 Cape Cod Minimart"}],
+  "joan.basile@cgexchange.org":[{id:"441",name:"441 Cape May Exchange"},{id:"442",name:"442 Cape May Laundry"}],
+  "jourdan.gaston@cgexchange.org":{id:"446",name:"446 Fort Wadsworth"},
+  "bryan.guy@cgexchange.org":{id:"454",name:"454 Baltimore"},
+  "jennifer.szymczak@cgexchange.org":{id:"101",name:"101 Otto Graham"},
+  "michael.valentino@cgexchange.org":[{id:"103",name:"103 Cleveland Mooring"},{id:"104",name:"104 Federal Bldg."}],
+  "ashley.gainey@cgexchange.org":{id:"105",name:"105 Buffalo"},
+  "jennifer.burgos@cgexchange.org":{id:"107",name:"107 Toledo"},
+  "michelle.rogan@cgexchange.org":{id:"109",name:"109 Detroit"},
+  "melody.doyle@cgexchange.org":{id:"110",name:"110 Sault Ste. Marie"},
+  "lyndell.luster@cgexchange.org":{id:"111",name:"111 Traverse City"},
+  "rena.chartier@cgexchange.org":{id:"112",name:"112 Grand Haven"},
+  "shawn.voges@cgexchange.org":{id:"231",name:"231 Galveston"},
+  "arista.duhon@cgexchange.org":{id:"233",name:"233 Ellington Field"},
+  "nick.williams@cgexchange.org":{id:"501",name:"501 Kodiak"},
+  "terry.smith@cgexchange.org":{id:"511",name:"511 Ketchikan"},
+  "leslie.baird@cgexchange.org":{id:"601",name:"601 Astoria"},
+  "angela.jobe-quiling@cgexchange.org":{id:"603",name:"603 Portland"},
+  "etrid.sherwood@cgexchange.org":{id:"611",name:"611 Seattle"},
+  "tara.west@cgexchange.org":{id:"612",name:"612 Port Angeles"},
+  "heather.caudle@cgexchange.org":{id:"621",name:"621 Coos Bay"},
+  "lisa.tracy@cgexchange.org":{id:"631",name:"631 Alameda"},
+  "briana.bergier@cgexchange.org":{id:"632",name:"632 San Diego"},
+  "michael.sumaron@cgexchange.org":{id:"634",name:"634 San Pedro"},
+  "emily.clark@cgexchange.org":{id:"651",name:"651 Petaluma"},
+  "robert.balagtas@cgexchange.org":{id:"662",name:"662 Honolulu"},
+  "orlando.plaza@cgexchange.org":{id:"391",name:"391 Borinquen"},
+  "edward.maldonado@cgexchange.org":{id:"395",name:"395 Caguas"},
+  "elizabeth.santiago@cgexchange.org":{id:"397",name:"397 San Juan"},
+  // Add 114, 448, 442 emails when available
+  "ednali.serralta@cgexchange.org":{id:"admin-hq",name:"Ednali Serralta",isAdmin:true,region:null},
+  "terri.amory@cgexchange.org":{id:"admin-r1",name:"Terri Amory",isAdmin:true,region:"Region 1"},
+  "michele.taylor@cgexchange.org":{id:"admin-r2",name:"Michele Taylor",isAdmin:true,region:"Region 2"},
+  "ty.lindsey@cgexchange.org":{id:"admin-r3",name:"Ty Lindsey",isAdmin:true,region:"Region 3"},
+  "nick.swango@cgexchange.org":{id:"admin-r4",name:"Nick Swango",isAdmin:true,region:"Region 4"},
+  "melissa.lacambra@cgexchange.org":{id:"admin-r5",name:"Melissa Lacambra",isAdmin:true,region:"Region 5"},
+  "jennifer.liston@cgexchange.org":{id:"admin-r6",name:"Jennifer Liston",isAdmin:true,region:"Region 6"},
+};
 
-function getFYStart(fy){
-  const feb1=new Date(fy,1,1),dow=feb1.getDay();
-  const back=dow,fwd=(7-dow)%7,offset=back<=fwd?-back:fwd;
-  const d=new Date(feb1);d.setDate(d.getDate()+offset);return d;
-}
-function getFiscalPeriods(fy){
-  const start=getFYStart(fy),periods=[];let cur=new Date(start);
-  for(let i=0;i<12;i++){
-    const pStart=new Date(cur),days=PERIOD_WEEKS[i]*7,pEnd=new Date(cur);
-    pEnd.setDate(pEnd.getDate()+days-1);
-    periods.push({num:i+1,label:PERIOD_NAMES[i],quarter:QUARTER_LABELS[i],weeks:PERIOD_WEEKS[i],start:pStart,end:pEnd});
-    cur.setDate(cur.getDate()+days);
-  }
-  return periods;
-}
-function getDatesForPeriod(fy,period){
-  const p=getFiscalPeriods(fy)[period-1],dates=[],d=new Date(p.start);
-  while(d<=p.end){dates.push(new Date(d));d.setDate(d.getDate()+1);}
-  return dates;
-}
-function fmtDate(d){return `${d.getDate()}-${MABBR[d.getMonth()]}`;}
-function fmtRange(p){return `${fmtDate(p.start)} – ${fmtDate(p.end)}`;}
-function fmtC(v){return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(parseFloat(v)||0);}
-const vc=v=>v>0?"#4ade80":v<0?"#f87171":"#9ca3af";
-
+// ─── STORES DATA ─────────────────────────────────────────────
 const REGIONS={"Region 1":"Terri Amory","Region 2":"Michele Taylor","Region 3":"Ty Lindsey","Region 4":"Nick Swango","Region 5":"Melissa Lacambra","Region 6":"Jennifer Liston"};
-
 const STORES=[
   {id:"371",name:"371 Charleston",region:"Region 1",manager:"Alison Matthews"},
   {id:"451",name:"451 Yorktown Main",region:"Region 1",manager:"Alexandra Knotts"},
@@ -104,740 +198,607 @@ const STORES=[
   {id:"397",name:"397 San Juan",region:"Region 6",manager:"Elizabeth Santiago"},
 ];
 
-const DEFAULT_USERS=[
-  {id:"u-hq",name:"Ednali Serralta",email:"ednali.serralta@cgexchange.org",role:"admin",storeId:null,region:null},
-  {id:"u-r1",name:"Terri Amory",email:"terri.amory@cgexchange.org",role:"admin",storeId:null,region:"Region 1"},
-  {id:"u-r2",name:"Michele Taylor",email:"michele.taylor@cgexchange.org",role:"admin",storeId:null,region:"Region 2"},
-  {id:"u-r3",name:"Ty Lindsey",email:"ty.lindsey@cgexchange.org",role:"admin",storeId:null,region:"Region 3"},
-  {id:"u-r4",name:"Nick Swango",email:"nick.swango@cgexchange.org",role:"admin",storeId:null,region:"Region 4"},
-  {id:"u-r5",name:"Melissa Lacambra",email:"melissa.lacambra@cgexchange.org",role:"admin",storeId:null,region:"Region 5"},
-  {id:"u-r6",name:"Jennifer Liston",email:"jennifer.liston@cgexchange.org",role:"admin",storeId:null,region:"Region 6"},
-];
+// ─── 4-5-4 CALENDAR ──────────────────────────────────────────
+const PERIOD_WEEKS=[4,5,4,4,5,4,4,5,4,4,5,4];
+const PERIOD_NAMES=["February","March","April","May","June","July","August","September","October","November","December","January"];
+const QUARTER_LABELS=["Q1","Q1","Q1","Q2","Q2","Q2","Q3","Q3","Q3","Q4","Q4","Q4"];
+const MABBR=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-// ── PERIOD SELECTOR ───────────────────────────────────────────
-function PeriodSelector({fy,setFy,period,setPeriod}){
-  const periods=getFiscalPeriods(fy);
-  return(
-    <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
-      <div>
-        <div style={{fontSize:9,color:"#aabbd0",marginBottom:2}}>FISCAL YEAR</div>
-        <select value={fy} onChange={e=>setFy(+e.target.value)} style={sel_s}>
-          {[2025,2026,2027].map(y=><option key={y} value={y}>FY{y}</option>)}
-        </select>
-      </div>
-      <div>
-        <div style={{fontSize:9,color:"#aabbd0",marginBottom:2}}>PERIOD</div>
-        <select value={period} onChange={e=>setPeriod(+e.target.value)} style={{...sel_s,minWidth:220}}>
-          {periods.map(p=><option key={p.num} value={p.num}>{p.quarter} · P{p.num} {p.label} ({fmtRange(p)}, {p.weeks}wk)</option>)}
-        </select>
-      </div>
-    </div>
-  );
+function getFYStart(fy){
+  const feb1=new Date(fy,1,1),dow=feb1.getDay();
+  const back=dow,fwd=(7-dow)%7,offset=back<=fwd?-back:fwd;
+  const d=new Date(feb1);d.setDate(d.getDate()+offset);return d;
+}
+function getFiscalPeriods(fy){
+  const start=getFYStart(fy),periods=[];let cur=new Date(start);
+  for(let i=0;i<12;i++){
+    const pStart=new Date(cur),days=PERIOD_WEEKS[i]*7,pEnd=new Date(cur);
+    pEnd.setDate(pEnd.getDate()+days-1);
+    periods.push({num:i+1,label:PERIOD_NAMES[i],quarter:QUARTER_LABELS[i],weeks:PERIOD_WEEKS[i],start:pStart,end:pEnd});
+    cur.setDate(cur.getDate()+days);
+  }
+  return periods;
+}
+function getDatesForPeriod(fy,period){
+  const p=getFiscalPeriods(fy)[period-1],dates=[],d=new Date(p.start);
+  while(d<=p.end){dates.push(new Date(d));d.setDate(d.getDate()+1);}
+  return dates;
+}
+function fmtDate(d){return `${d.getDate()}-${MABBR[d.getMonth()]}`;}
+function fmtRange(p){return `${fmtDate(p.start)} – ${fmtDate(p.end)}`;}
+function fmtC(v){return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(parseFloat(v)||0);}
+function vc(v){return v>0?"#4ade80":v<0?"#f87171":"#9ca3af";}
+function getCurrentPeriod(){
+  const now=new Date();
+  for(let y=2025;y<=2027;y++){
+    const ps=getFiscalPeriods(y);
+    for(const p of ps){if(now>=p.start&&now<=p.end)return{fy:y,period:p.num};}
+  }
+  return{fy:2026,period:4};
 }
 
-// ── HEADER ────────────────────────────────────────────────────
-function Header({title,sub,fy,setFy,period,setPeriod,extra}){
-  return(
-    <div style={{background:BLUE,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:`3px solid ${RED}`,flexWrap:"wrap",gap:8}}>
-      <div>
-        <div style={{fontSize:16,fontWeight:700,color:TEXT}}>⚓ {title}</div>
-        <div style={{fontSize:11,color:"#aabbd0"}}>{sub}</div>
+// ─── AUTH ────────────────────────────────────────────────────
+async function signIn(){
+  try{
+    const result=await msalInstance.loginPopup({scopes:["User.Read"]});
+    const email=result.account.username.toLowerCase();
+    const match=STORE_MAP[email];
+    if(!match){
+      showError(`Account ${email} is not mapped to a store. Contact your administrator.`);return;
+    }
+    if(match.isAdmin){renderApp(match,result.account.name);return;}
+    if(Array.isArray(match)){showStorePicker(match,result.account.name);return;}
+    renderApp(match,result.account.name);
+  }catch(e){console.error(e);showError("Sign-in failed. Please try again.");}
+}
+msalInstance.handleRedirectPromise().then(result=>{
+  if(result){
+    const email=result.account.username.toLowerCase();
+    const match=STORE_MAP[email];
+    if(!match)return;
+    if(match.isAdmin)renderApp(match,result.account.name);
+    else if(Array.isArray(match))showStorePicker(match,result.account.name);
+    else renderApp(match,result.account.name);
+  }
+});
+function showError(msg){const el=document.getElementById("login-error");if(el){el.style.display="block";el.textContent=msg;}}
+
+function showStorePicker(stores,displayName){
+  document.getElementById("app").innerHTML=`
+    <div class="login-wrap">
+      <div class="login-box" style="text-align:center">
+        <div style="font-size:28px;margin-bottom:8px">⚓</div>
+        <p style="color:#e6edf3;font-weight:700;margin-bottom:4px">Welcome, ${displayName}</p>
+        <p style="color:#7d8590;font-size:13px;margin-bottom:20px">You manage multiple stores. Select one:</p>
+        ${stores.map(s=>`<button onclick='renderApp(${JSON.stringify(s)},"${displayName}")' style="display:block;width:100%;background:#1c2333;border:1px solid #21262d;border-radius:6px;padding:12px;color:#e6edf3;font-size:14px;cursor:pointer;margin-bottom:8px;text-align:left;">🏪 ${s.name}</button>`).join("")}
       </div>
-      <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
-        <PeriodSelector fy={fy} setFy={setFy} period={period} setPeriod={setPeriod}/>
-        {extra}
-      </div>
-    </div>
-  );
+    </div>`;
 }
 
-// ── LOGIN ─────────────────────────────────────────────────────
-function Login({onLogin,users}){
-  const [step,setStep]=useState(1);
-  const [sel,setSel]=useState(null);
-  const [search,setSearch]=useState("");
-  const storeUsers=users.filter(u=>u.role!=="admin");
-  const adminUsers=users.filter(u=>u.role==="admin");
-  const filteredStores=STORES.filter(s=>
-    s.name.toLowerCase().includes(search.toLowerCase())||
-    s.region.toLowerCase().includes(search.toLowerCase())||
-    s.manager.toLowerCase().includes(search.toLowerCase())
-  );
-  return(
-    <div style={{background:DARK,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Segoe UI,sans-serif",padding:16}}>
-      <div style={{width:480,background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,padding:28}}>
-        <div style={{textAlign:"center",marginBottom:20}}>
-          <div style={{fontSize:34,marginBottom:6}}>⚓</div>
-          <div style={{fontSize:20,fontWeight:700,color:TEXT}}>ShopCGX</div>
-          <div style={{fontSize:12,color:MUTED}}>Daily Sales Reporting Portal</div>
+// ─── DATA HELPERS ────────────────────────────────────────────
+function loadData(key){return JSON.parse(sessionStorage.getItem(key)||"{}");}
+function saveData(key,data){sessionStorage.setItem(key,JSON.stringify(data));}
+
+// ─── RENDER APP ──────────────────────────────────────────────
+function renderApp(user,displayName){
+  const{fy,period}=getCurrentPeriod();
+  window._appState={user,displayName,fy,period};
+  document.getElementById("app").innerHTML=`
+    <div class="header">
+      <div>
+        <h1 style="font-size:16px;font-weight:700">⚓ ShopCGX ${user.isAdmin?"Admin Dashboard":"Sales Entry — "+user.name}</h1>
+        <p style="font-size:11px;color:#aabbd0">Coast Guard Exchange · Daily Sales Reporting · ${displayName}</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+        <div>
+          <div style="font-size:9px;color:#aabbd0;margin-bottom:2px">FISCAL YEAR</div>
+          <select id="sel-fy" onchange="refreshView()" style="min-width:80px">
+            ${[2025,2026,2027].map(y=>`<option value="${y}"${y===fy?" selected":""}>${y}</option>`).join("")}
+          </select>
         </div>
-        {step===1?(
-          <>
-            <p style={{fontSize:13,color:MUTED,textAlign:"center",marginBottom:18}}>Sign in with your CGX Microsoft account.</p>
-            <button onClick={()=>setStep(2)} style={{width:"100%",background:"#2a2f45",border:`1px solid ${BORDER}`,borderRadius:6,padding:"11px 0",color:TEXT,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
-              <svg width="18" height="18" viewBox="0 0 21 21"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
-              Sign in with Microsoft
-            </button>
-            <p style={{fontSize:11,color:MUTED,textAlign:"center",marginTop:12}}>🔒 Secured via Azure Active Directory</p>
-          </>
-        ):(
-          <>
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search store, number, or manager..." style={{width:"100%",background:"#0d1117",color:TEXT,border:`1px solid ${BORDER}`,borderRadius:5,padding:"7px 10px",fontSize:12,marginBottom:8}}/>
-            <div style={{maxHeight:280,overflowY:"auto",marginBottom:10,paddingRight:2}}>
-              {Object.entries(REGIONS).map(([rKey,rMgr])=>{
-                const rStores=filteredStores.filter(s=>s.region===rKey);
-                if(!rStores.length)return null;
-                return(
-                  <div key={rKey}>
-                    <div style={{fontSize:10,color:MUTED,padding:"6px 8px 3px",fontWeight:700,letterSpacing:1}}>{rKey} — {rMgr}</div>
-                    {rStores.map(s=>{
-                      const sUsers=storeUsers.filter(u=>u.storeId===s.id);
-                      if(sUsers.length) return sUsers.map(u=>(
-                        <div key={u.id} onClick={()=>setSel(u)} style={{padding:"6px 10px",marginBottom:3,borderRadius:5,cursor:"pointer",background:sel?.id===u.id?BLUE:"#1c2333",border:`1px solid ${sel?.id===u.id?BLUE:BORDER}`,color:TEXT,fontSize:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                          <span><strong>{s.name}</strong> · {u.name}</span>
-                          <span style={{background:ROLE_COLORS[u.role]+"22",color:ROLE_COLORS[u.role],fontSize:10,padding:"1px 6px",borderRadius:10,border:`1px solid ${ROLE_COLORS[u.role]}44`}}>{ROLE_LABELS[u.role]}</span>
-                        </div>
-                      ));
-                      return(
-                        <div key={s.id} onClick={()=>setSel({id:`store-${s.id}`,name:s.manager,role:"manager",storeId:s.id})} style={{padding:"6px 10px",marginBottom:3,borderRadius:5,cursor:"pointer",background:sel?.storeId===s.id&&sel?.role==="manager"?BLUE:"#1c2333",border:`1px solid ${sel?.storeId===s.id&&sel?.role==="manager"?BLUE:BORDER}`,color:TEXT,fontSize:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                          <span><strong>{s.name}</strong> · {s.manager||"—"}</span>
-                          <span style={{background:ROLE_COLORS.manager+"22",color:ROLE_COLORS.manager,fontSize:10,padding:"1px 6px",borderRadius:10,border:`1px solid ${ROLE_COLORS.manager}44`}}>Manager</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-              <div style={{marginTop:8}}>
-                <div style={{fontSize:10,color:MUTED,padding:"4px 8px 3px",fontWeight:700,letterSpacing:1}}>ADMIN ACCESS</div>
-                {adminUsers.map(u=>(
-                  <div key={u.id} onClick={()=>setSel(u)} style={{padding:"6px 10px",marginBottom:3,borderRadius:5,cursor:"pointer",background:sel?.id===u.id?RED:"#1c2333",border:`1px solid ${sel?.id===u.id?RED:BORDER}`,color:TEXT,fontSize:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <span>🔐 {u.name}</span>
-                    <span style={{color:MUTED,fontSize:11}}>{u.region||"All Regions"}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <button onClick={()=>sel&&onLogin(sel)} disabled={!sel} style={{width:"100%",background:sel?(sel.role==="admin"?RED:BLUE):"#2a2f45",border:"none",borderRadius:6,padding:"10px 0",color:TEXT,fontSize:14,fontWeight:700,cursor:sel?"pointer":"default",opacity:sel?1:0.6}}>
-              {sel?`Enter as ${sel.name}`:"Select your name to continue"}
-            </button>
-          </>
-        )}
+        <div>
+          <div style="font-size:9px;color:#aabbd0;margin-bottom:2px">PERIOD</div>
+          <select id="sel-period" onchange="refreshView()" style="min-width:220px">
+            ${getFiscalPeriods(fy).map(p=>`<option value="${p.num}"${p.num===period?" selected":""}>${p.quarter} · P${p.num} ${p.label} (${fmtRange(p)}, ${p.weeks}wk)</option>`).join("")}
+          </select>
+        </div>
+        <div style="background:#21262d;border-radius:20px;padding:4px 12px;font-size:12px">👤 ${displayName}</div>
+        <button class="btn" style="background:#21262d;color:#7d8590" onclick="location.reload()">Sign out</button>
       </div>
     </div>
-  );
+    <div id="view-container"></div>`;
+  refreshView();
 }
 
-// ── STORE VIEW ────────────────────────────────────────────────
-function StoreView({user,onLogout,fy,setFy,period,setPeriod}){
-  const [storeTab,setStoreTab]=useState("entry");
-  const [data,setData]=useState({});
-  const [adm,setAdm]=useState({});
-  const [allRegData,setAllRegData]=useState({});
-  const [saving,setSaving]=useState(false);
-  const [saved,setSaved]=useState(false);
-  const [loading,setLoading]=useState(true);
-  const store=STORES.find(s=>s.id===user.storeId);
-  const periods=getFiscalPeriods(fy);
-  const pInfo=periods[period-1];
+function refreshView(){
+  const{user,displayName}=window._appState;
+  const fy=+document.getElementById("sel-fy").value;
+  const period=+document.getElementById("sel-period").value;
+  // Update period options when FY changes
+  const pSel=document.getElementById("sel-period");
+  if(pSel){
+    const curP=+pSel.value;
+    pSel.innerHTML=getFiscalPeriods(fy).map(p=>`<option value="${p.num}"${p.num===curP?" selected":""}>${p.quarter} · P${p.num} ${p.label} (${fmtRange(p)}, ${p.weeks}wk)</option>`).join("");
+  }
+  window._appState.fy=fy;window._appState.period=period;
+  if(user.isAdmin)renderAdminView(fy,period);
+  else renderStoreView(user,fy,period);
+}
+
+// ─── STORE VIEW ──────────────────────────────────────────────
+function renderStoreView(user,fy,period){
+  const store=STORES.find(s=>s.id===user.id);
+  const pInfo=getFiscalPeriods(fy)[period-1];
   const dates=getDatesForPeriod(fy,period);
   const mKey=`fy${fy}-p${period}`;
-  const sKey=`store:${user.storeId}:${mKey}`;
+  const sKey=`store:${user.id}:${mKey}`;
+  const data=loadData(sKey);
+  const admData=loadData(`adm:${mKey}:${user.id}`);
 
-  useEffect(()=>{
-    (async()=>{
-      setLoading(true);
-      try{const r=await window.storage.get(sKey,true);setData(r?JSON.parse(r.value):{});}catch{setData({});}
-      try{const r=await window.storage.get(`adm:${mKey}:${user.storeId}`,true);setAdm(r?JSON.parse(r.value):{});}catch{setAdm({});}
-      if(store){
-        const d={};
-        for(const s of STORES.filter(x=>x.region===store.region)){
-          try{const r=await window.storage.get(`store:${s.id}:${mKey}`,true);d[s.id]=r?JSON.parse(r.value):{};}catch{d[s.id]={};}
-        }
-        setAllRegData(d);
-      }
-      setLoading(false);
-    })();
-  },[sKey]);
-
-  const save=async()=>{setSaving(true);try{await window.storage.set(sKey,JSON.stringify(data),true);setSaved(true);setTimeout(()=>setSaved(false),2500);}catch(e){console.error(e);}setSaving(false);};
-  const upd=(ds,f,v)=>setData(p=>({...p,[ds]:{...(p[ds]||{}),[f]:v}}));
   const calc=ds=>{
-    const r=data[ds]||{},a=adm[ds]||{};
+    const r=data[ds]||{},a=admData[ds]||{};
     const ss=parseFloat(r.ss)||0,cx=parseFloat(r.cx)||0,gs=parseFloat(r.gs)||0,tot=ss+cx;
     const ly=parseFloat(a.ly)||0,plan=parseFloat(a.plan)||0;
     return{ss,cx,gs,tot,totG:tot+gs,ly,plan,vLY:tot-ly,vPlan:tot-plan};
   };
   const T=dates.reduce((a,d)=>{const c=calc(fmtDate(d));return{ss:a.ss+c.ss,cx:a.cx+c.cx,tot:a.tot+c.tot,gs:a.gs+c.gs,totG:a.totG+c.totG,ly:a.ly+c.ly,plan:a.plan+c.plan,vLY:a.vLY+c.vLY,vPlan:a.vPlan+c.vPlan};},{ss:0,cx:0,tot:0,gs:0,totG:0,ly:0,plan:0,vLY:0,vPlan:0});
-  const inp=(w=90)=>({background:"#0d1f0d",color:"#86efac",border:"1px solid #1e3a1e",borderRadius:3,padding:"3px 5px",fontSize:12,width:w,textAlign:"right"});
-  const noteInp={background:"#0d1120",color:"#93c5fd",border:"1px solid #1e2a4a",borderRadius:3,padding:"3px 5px",fontSize:12,width:"100%"};
-  const th=(t,r=true)=><th key={t} style={{padding:"7px 6px",textAlign:r?"right":"left",fontSize:11,color:"#c8d0e8",fontWeight:600,whiteSpace:"nowrap",borderBottom:`2px solid ${RED}`}}>{t}</th>;
-  const TabBtn=({id,lbl})=><button onClick={()=>setStoreTab(id)} style={{background:storeTab===id?RED:"#21262d",color:TEXT,border:`1px solid ${storeTab===id?RED:BORDER}`,borderRadius:4,padding:"5px 12px",cursor:"pointer",fontWeight:storeTab===id?700:400,fontSize:12}}>{lbl}</button>;
+
   const regionStores=STORES.filter(s=>s.region===store?.region);
+  const storeTab=window._storeTab||"entry";
 
-  return(
-    <div style={{background:DARK,minHeight:"100vh",fontFamily:"Segoe UI,sans-serif",color:TEXT}}>
-      <Header title={`Sales Entry — ${user.name} · ${store?.name}`}
-        sub={`${store?.region} · FY${fy} ${pInfo?.quarter} P${period} · ${pInfo?fmtRange(pInfo):""} (${pInfo?.weeks} weeks)`}
-        fy={fy} setFy={setFy} period={period} setPeriod={setPeriod}
-        extra={<>
-          <button onClick={save} style={{background:saved?"#166534":RED,color:"#fff",border:"none",borderRadius:5,padding:"7px 14px",fontWeight:700,cursor:"pointer",fontSize:12}}>{saving?"Saving...":saved?"✓ Saved!":"💾 Save"}</button>
-          <button onClick={()=>{setLoading(true);setTimeout(()=>setLoading(false),100);}} style={{background:"#21262d",color:"#93c5fd",border:`1px solid ${BORDER}`,borderRadius:5,padding:"7px 10px",cursor:"pointer",fontSize:12}}>🔄 Refresh</button>
-          <button onClick={onLogout} style={{background:"#21262d",color:MUTED,border:`1px solid ${BORDER}`,borderRadius:5,padding:"7px 10px",cursor:"pointer",fontSize:12}}>Sign out</button>
-        </>}
-      />
-      <div style={{background:CARD,padding:"6px 16px",display:"flex",gap:8,borderBottom:`1px solid ${BORDER}`}}>
-        <TabBtn id="entry" lbl="📋 My Store Entry"/>
-        <TabBtn id="region" lbl={`🗺 ${store?.region} Overview`}/>
-      </div>
-      <div style={{background:CARD,borderBottom:`1px solid ${BORDER}`,padding:"8px 16px",display:"flex",gap:20,flexWrap:"wrap"}}>
-        {[{l:"PTD SALES",v:fmtC(T.tot),c:"#4ade80"},{l:"PTD PLAN",v:T.plan>0?fmtC(T.plan):"—",c:"#fbbf24"},{l:"VAR TO PLAN",v:T.plan>0?fmtC(T.vPlan):"—",c:vc(T.vPlan)},{l:"PTD LY",v:T.ly>0?fmtC(T.ly):"—",c:"#60a5fa"},{l:"VAR TO LY",v:T.ly>0?fmtC(T.vLY):"—",c:vc(T.vLY)},{l:"DAYS IN",v:`${dates.filter(d=>calc(fmtDate(d)).tot>0).length}/${dates.length}`,c:MUTED}].map(s=>(
-          <div key={s.l}><div style={{fontSize:10,color:MUTED}}>{s.l}</div><div style={{fontSize:14,fontWeight:700,color:s.c}}>{s.v}</div></div>
-        ))}
-      </div>
-      {loading?<div style={{padding:40,textAlign:"center",color:MUTED}}>Loading...</div>:
-        storeTab==="entry"?(
-          <div style={{overflowX:"auto"}}>
-            <table style={{width:"100%",borderCollapse:"collapse",minWidth:920}}>
-              <thead><tr style={{background:"#0e1e50"}}>{th("Date",false)}{th("Store Sales")}{th("CGXpress")}{th("Total Sales")}{th("Plan")}{th("LY Sales")}{th("Var to LY")}{th("Var to Plan")}{th("Gas Sales")}{th("Total w/Gas")}{th("Anomalies / Comments",false)}{th("Txn #")}</tr></thead>
-              <tbody>
-                {dates.map((d,i)=>{
-                  const ds=fmtDate(d),r=data[ds]||{},c=calc(ds);
-                  const wk=d.getDay()===0||d.getDay()===6;
-                  const dayNum=Math.floor((d-pInfo.start)/(1000*60*60*24));
-                  const weekStart=dayNum%7===0;
-                  return(
-                    <tr key={ds} style={{background:wk?"#1a1c30":i%2===0?CARD:"#1c2333",borderBottom:weekStart&&i>0?"2px solid #2a3a5a":`1px solid ${BORDER}`}}>
-                      <td style={{padding:"3px 8px",fontWeight:600,whiteSpace:"nowrap",color:wk?"#818cf8":TEXT}}>
-                        {ds}{weekStart&&i>0&&<span style={{fontSize:9,color:MUTED,marginLeft:4}}>W{Math.floor(dayNum/7)+1}</span>}
-                      </td>
-                      <td style={{padding:"2px 4px"}}><input type="number" value={r.ss||""} onChange={e=>upd(ds,"ss",e.target.value)} style={inp()} placeholder="0.00"/></td>
-                      <td style={{padding:"2px 4px"}}><input type="number" value={r.cx||""} onChange={e=>upd(ds,"cx",e.target.value)} style={inp(80)} placeholder="0.00"/></td>
-                      <td style={{padding:"3px 8px",textAlign:"right",color:c.tot>0?"#4ade80":"#4b5563"}}>{fmtC(c.tot)}</td>
-                      <td style={{padding:"3px 8px",textAlign:"right",color:"#fbbf24"}}>{c.plan>0?fmtC(c.plan):<span style={{color:"#374151"}}>—</span>}</td>
-                      <td style={{padding:"3px 8px",textAlign:"right",color:"#60a5fa"}}>{c.ly>0?fmtC(c.ly):<span style={{color:"#374151"}}>—</span>}</td>
-                      <td style={{padding:"3px 8px",textAlign:"right",color:vc(c.vLY)}}>{c.ly>0?fmtC(c.vLY):<span style={{color:"#374151"}}>—</span>}</td>
-                      <td style={{padding:"3px 8px",textAlign:"right",color:vc(c.vPlan)}}>{c.plan>0?fmtC(c.vPlan):<span style={{color:"#374151"}}>—</span>}</td>
-                      <td style={{padding:"2px 4px"}}><input type="number" value={r.gs||""} onChange={e=>upd(ds,"gs",e.target.value)} style={inp(80)} placeholder="0.00"/></td>
-                      <td style={{padding:"3px 8px",textAlign:"right",color:"#67e8f9"}}>{fmtC(c.totG)}</td>
-                      <td style={{padding:"2px 4px",minWidth:150}}><input type="text" value={r.notes||""} onChange={e=>upd(ds,"notes",e.target.value)} style={noteInp} placeholder="Notes..."/></td>
-                      <td style={{padding:"2px 4px"}}><input type="number" value={r.txn||""} onChange={e=>upd(ds,"txn",e.target.value)} style={inp(55)} placeholder="0"/></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot><tr style={{background:"#0e1e50",borderTop:`2px solid ${RED}`,fontWeight:700}}>
-                <td style={{padding:"7px 8px",color:RED,fontWeight:800}}>TOTALS</td>
-                <td style={{padding:"7px 6px",textAlign:"right",color:"#4ade80"}}>{fmtC(T.ss)}</td>
-                <td style={{padding:"7px 6px",textAlign:"right",color:"#4ade80"}}>{fmtC(T.cx)}</td>
-                <td style={{padding:"7px 6px",textAlign:"right",color:"#4ade80"}}>{fmtC(T.tot)}</td>
-                <td style={{padding:"7px 6px",textAlign:"right",color:"#fbbf24"}}>{fmtC(T.plan)}</td>
-                <td style={{padding:"7px 6px",textAlign:"right",color:"#60a5fa"}}>{fmtC(T.ly)}</td>
-                <td style={{padding:"7px 6px",textAlign:"right",color:vc(T.vLY)}}>{fmtC(T.vLY)}</td>
-                <td style={{padding:"7px 6px",textAlign:"right",color:vc(T.vPlan)}}>{fmtC(T.vPlan)}</td>
-                <td style={{padding:"7px 6px",textAlign:"right",color:"#67e8f9"}}>{fmtC(T.gs)}</td>
-                <td style={{padding:"7px 6px",textAlign:"right",color:"#67e8f9"}}>{fmtC(T.totG)}</td>
-                <td colSpan={2}/>
-              </tr></tfoot>
-            </table>
-          </div>
-        ):(
-          <div style={{padding:16}}>
-            <div style={{fontSize:13,fontWeight:600,marginBottom:12,color:"#c8d0e8"}}>{store?.region} — {REGIONS[store?.region||""]} · FY{fy} P{period} {pInfo?.label}</div>
-            <table style={{width:"100%",borderCollapse:"collapse"}}>
-              <thead><tr style={{background:"#0e1e50"}}>
-                {["Store","Manager","PTD Sales","Days Entered"].map((h,i)=>(
-                  <th key={h} style={{padding:"7px 10px",textAlign:i<2?"left":"right",fontSize:11,color:"#c8d0e8",fontWeight:600,borderBottom:`2px solid ${RED}`}}>{h}</th>
-                ))}
-              </tr></thead>
-              <tbody>
-                {regionStores.map((s,i)=>{
-                  const sd=allRegData[s.id]||{};
-                  const tot=dates.reduce((a,d)=>{const r=sd[fmtDate(d)]||{};return a+(parseFloat(r.ss)||0)+(parseFloat(r.cx)||0);},0);
-                  const days=dates.filter(d=>{const r=sd[fmtDate(d)]||{};return(parseFloat(r.ss)||0)+(parseFloat(r.cx)||0)>0;}).length;
-                  const isOwn=s.id===user.storeId;
-                  return(
-                    <tr key={s.id} style={{background:isOwn?"#0e1e50":i%2===0?CARD:"#1c2333",borderBottom:`1px solid ${BORDER}`}}>
-                      <td style={{padding:"7px 10px",fontWeight:isOwn?700:400,color:isOwn?"#fbbf24":TEXT}}>{s.name}{isOwn&&<span style={{fontSize:10,color:"#fbbf24",marginLeft:6}}>(your store)</span>}</td>
-                      <td style={{padding:"7px 10px",color:MUTED,fontSize:12}}>{s.manager}</td>
-                      <td style={{padding:"7px 10px",textAlign:"right",color:tot>0?"#4ade80":"#4b5563",fontWeight:600}}>{fmtC(tot)}</td>
-                      <td style={{padding:"7px 10px",textAlign:"right",color:days>0?"#a3e635":MUTED}}>{days}/{dates.length}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )
-      }
+  document.getElementById("view-container").innerHTML=`
+    <div class="tab-bar">
+      <button class="tab-btn${storeTab==="entry"?" active":""}" onclick="setStoreTab('entry')">📋 My Store Entry</button>
+      <button class="tab-btn${storeTab==="region"?" active":""}" onclick="setStoreTab('region')">🗺 ${store?.region} Overview</button>
     </div>
-  );
+    <div class="kpi-strip">
+      ${[["PTD SALES",fmtC(T.tot),"#4ade80"],["PTD PLAN",T.plan>0?fmtC(T.plan):"—","#fbbf24"],["VAR TO PLAN",T.plan>0?fmtC(T.vPlan):"—",vc(T.vPlan)],["PTD LY",T.ly>0?fmtC(T.ly):"—","#60a5fa"],["VAR TO LY",T.ly>0?fmtC(T.vLY):"—",vc(T.vLY)],["DAYS IN",`${dates.filter(d=>calc(fmtDate(d)).tot>0).length}/${dates.length}`,"#7d8590"]].map(([l,v,c])=>`<div class="kpi"><label>${l}</label><span style="color:${c}">${v}</span></div>`).join("")}
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <button class="btn" id="save-btn" style="background:#CC0000" onclick="saveStoreData('${sKey}')">💾 Save</button>
+        <button class="btn" style="background:#21262d;color:#93c5fd" onclick="refreshView()">🔄 Refresh</button>
+      </div>
+    </div>
+    <div id="store-tab-content"></div>`;
+
+  renderStoreTabContent(storeTab,dates,pInfo,data,admData,calc,T,regionStores,user,fy,period,mKey);
 }
 
-// ── IMPORT TAB ────────────────────────────────────────────────
-function ImportTab({fy:globalFy,period:globalPeriod}){
-  const [rows,setRows]=useState([]);
-  const [headers,setHeaders]=useState([]);
-  const [storeCol,setStoreCol]=useState("");
-  const [dateCol,setDateCol]=useState("");
-  const [lyCol,setLyCol]=useState("");
-  const [planCol,setPlanCol]=useState("");
-  const [importing,setImporting]=useState(false);
-  const [result,setResult]=useState(null);
-  const [dragOver,setDragOver]=useState(false);
-  const [srcInfo,setSrcInfo]=useState(null);
-  // Independent target period — defaults to global but user can override
-  const [tgtFy,setTgtFy]=useState(globalFy);
-  const [tgtPeriod,setTgtPeriod]=useState(globalPeriod);
+function setStoreTab(tab){window._storeTab=tab;refreshView();}
 
-  const mKey=`fy${tgtFy}-p${tgtPeriod}`;
-  const targetDates=getDatesForPeriod(tgtFy,tgtPeriod);
-  const tgtPeriods=getFiscalPeriods(tgtFy);
-  const tgtInfo=tgtPeriods[tgtPeriod-1];
-
-  const parseVal=(v)=>{
-    if(!v&&v!==0)return 0;
-    const s=String(v).trim();
-    const neg=s.startsWith("(")||s.startsWith("-");
-    const clean=s.replace(/[()\-$,\s]/g,"");
-    return neg?-(parseFloat(clean)||0):(parseFloat(clean)||0);
-  };
-
-  const parseDate=(v)=>{
-    if(!v)return null;
-    const s=String(v).trim();
-    const iso=s.match(/^(\d{4})[\/\-](\d{2})[\/\-](\d{2})$/);
-    if(iso)return new Date(+iso[1],+iso[2]-1,+iso[3]);
-    const us=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if(us)return new Date(+us[3],+us[1]-1,+us[2]);
-    const d=new Date(s);return isNaN(d)?null:d;
-  };
-
-  const detectSrcPeriod=(dates)=>{
-    for(let y=2023;y<=2026;y++){
-      const ps=getFiscalPeriods(y);
-      for(const p of ps){
-        const inP=dates.filter(d=>d>=p.start&&d<=p.end);
-        if(inP.length/dates.length>0.7)return{fy:y,period:p.num,info:p};
-      }
-    }
-    return null;
-  };
-
-  const parseFile=async(f)=>{
-    const buf=await f.arrayBuffer();
-    const wb=XLSX.read(buf);
-    const ws=wb.Sheets[wb.SheetNames[0]];
-    const data=XLSX.utils.sheet_to_json(ws,{raw:false,defval:""});
-    if(!data.length)return;
-    const hdrs=Object.keys(data[0]);
-    setHeaders(hdrs);setRows(data);setResult(null);setSrcInfo(null);
-    const sc=hdrs.find(h=>/^store/i.test(h.trim()))||hdrs[0]||"";
-    const dc=hdrs.find(h=>/date/i.test(h))||"";
-    const lc=hdrs.find(h=>/retail\s*ty|sales\s*ty/i.test(h))||hdrs.find(h=>/\bty\b/i.test(h))||"";
-    const pc=hdrs.find(h=>/retail\s*ly|sales\s*ly/i.test(h))||hdrs.find(h=>/\bly\b/i.test(h))||"";
-    setStoreCol(sc);setDateCol(dc);setLyCol(lc);setPlanCol(pc);
-    if(dc){
-      const dates=data.map(r=>parseDate(r[dc])).filter(Boolean);
-      if(dates.length){
-        const src=detectSrcPeriod(dates);
-        setSrcInfo(src);
-        // Auto-suggest target: same period number, one year forward
-        if(src){setTgtFy(src.fy+1);setTgtPeriod(src.period);}
-      }
-    }
-  };
-
-  const doImport=async()=>{
-    setImporting(true);
-    const byStore={};
-    for(const row of rows){
-      const storeRaw=String(row[storeCol]||"").trim();
-      const storeId=storeRaw.split(/[\s\-]/)[0].replace(/\D/g,"");
-      const store=STORES.find(s=>s.id===storeId);
-      if(!store)continue;
-      const date=parseDate(row[dateCol]);if(!date)continue;
-      if(!byStore[store.id])byStore[store.id]=[];
-      byStore[store.id].push({date,ly:parseVal(row[lyCol]),plan:parseVal(row[planCol])});
-    }
-    for(const sid of Object.keys(byStore))byStore[sid].sort((a,b)=>a.date-b.date);
-    let matched=0,skipped=0;
-    const saveData={};
-    for(const[sid,srows]of Object.entries(byStore)){
-      saveData[sid]={};
-      srows.forEach((row,i)=>{
-        const targetDate=targetDates[i];
-        if(!targetDate){skipped++;return;}
-        saveData[sid][fmtDate(targetDate)]={ly:row.ly,plan:row.plan};
-        matched++;
-      });
-    }
-    for(const[sid,data]of Object.entries(saveData)){
-      try{await window.storage.set(`adm:${mKey}:${sid}`,JSON.stringify(data),true);}catch(e){console.error(e);}
-    }
-    setResult({matched,skipped,stores:Object.keys(saveData).length,storeNames:Object.keys(saveData).map(id=>STORES.find(s=>s.id===id)?.name).filter(Boolean)});
-    setImporting(false);
-  };
-
-  const ss2={...sel_s,width:"100%"};
-  return(
-    <div style={{padding:16}}>
-      <div style={{fontSize:13,fontWeight:600,marginBottom:4,color:"#c8d0e8"}}>📥 Import from Mi9 Excel Report</div>
-      <div style={{fontSize:12,color:MUTED,marginBottom:12}}>Handles Mi9 format — $values, (negatives), YYYY/MM/DD dates, 4-5-4 day-position mapping</div>
-
-      {/* Target period selector — independent of global period */}
-      <div style={{background:"#0d1a2a",border:"1px solid #1e3a5a",borderRadius:6,padding:"12px 14px",marginBottom:14}}>
-        <div style={{fontSize:11,fontWeight:700,color:"#93c5fd",marginBottom:10,letterSpacing:1}}>📅 TARGET PERIOD — where should this data be saved as LY?</div>
-        <div style={{display:"flex",gap:12,alignItems:"flex-end",flexWrap:"wrap"}}>
-          <div>
-            <div style={{fontSize:10,color:MUTED,marginBottom:3}}>FISCAL YEAR</div>
-            <select value={tgtFy} onChange={e=>setTgtFy(+e.target.value)} style={sel_s}>
-              {[2025,2026,2027].map(y=><option key={y} value={y}>FY{y}</option>)}
-            </select>
-          </div>
-          <div>
-            <div style={{fontSize:10,color:MUTED,marginBottom:3}}>PERIOD</div>
-            <select value={tgtPeriod} onChange={e=>setTgtPeriod(+e.target.value)} style={{...sel_s,minWidth:220}}>
-              {getFiscalPeriods(tgtFy).map(p=><option key={p.num} value={p.num}>{p.quarter} · P{p.num} {p.label} ({fmtRange(p)})</option>)}
-            </select>
-          </div>
-          <div style={{fontSize:12,color:"#4ade80",paddingBottom:4}}>
-            → Saving as LY into: <strong>FY{tgtFy} P{tgtPeriod} {tgtInfo?.label}</strong> ({tgtInfo?fmtRange(tgtInfo):""})
-          </div>
-        </div>
-        {srcInfo&&(
-          <div style={{fontSize:11,color:"#fbbf24",marginTop:8}}>
-            ✓ Source detected as <strong>FY{srcInfo.fy} P{srcInfo.period} {srcInfo.info.label}</strong> ({fmtRange(srcInfo.info)}) — target auto-set to FY{srcInfo.fy+1} P{srcInfo.period}
-          </div>
-        )}
-      </div>
-
-      {/* Drop zone */}
-      <div onDragOver={e=>{e.preventDefault();setDragOver(true);}} onDragLeave={()=>setDragOver(false)}
-        onDrop={e=>{e.preventDefault();setDragOver(false);const f=e.dataTransfer.files[0];if(f)parseFile(f);}}
-        style={{background:dragOver?"#1a2a3a":CARD,border:`2px dashed ${dragOver?BLUE:BORDER}`,borderRadius:8,padding:24,textAlign:"center",marginBottom:14,transition:"all 0.2s"}}>
-        <div style={{fontSize:26,marginBottom:6}}>📂</div>
-        <div style={{fontSize:14,color:TEXT,marginBottom:8}}>Drag & drop your Mi9 regional Excel file here</div>
-        <label style={{background:BLUE,color:"#fff",padding:"7px 18px",borderRadius:5,cursor:"pointer",fontSize:13,fontWeight:600}}>
-          Browse File
-          <input type="file" accept=".xlsx,.xls" onChange={e=>e.target.files[0]&&parseFile(e.target.files[0])} style={{display:"none"}}/>
-        </label>
-        <div style={{fontSize:11,color:MUTED,marginTop:8}}>Supports .xlsx · One file per region · All stores imported at once</div>
-      </div>
-
-      {headers.length>0&&(
-        <>
-          <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,padding:14,marginBottom:14}}>
-            <div style={{fontSize:11,fontWeight:700,color:MUTED,marginBottom:10,letterSpacing:1}}>COLUMN MAPPING — <span style={{color:"#fbbf24"}}>For FY26 LY: select "Sales Retail TY" as the LY column (TY from FY25 = LY for FY26)</span></div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
-              {[
-                {l:"Store # Column",v:storeCol,s:setStoreCol,c:"#a3e635",note:"e.g. 201"},
-                {l:"Date Column",v:dateCol,s:setDateCol,c:"#e6edf3",note:"e.g. 2025/04/06"},
-                {l:"LY Sales Column",v:lyCol,s:setLyCol,c:"#60a5fa",note:"Use Sales Retail TY for FY26 LY"},
-                {l:"Plan / Reference",v:planCol,s:setPlanCol,c:"#fbbf24",note:"optional"},
-              ].map(f=>(
-                <div key={f.l}>
-                  <div style={{fontSize:10,color:f.c,marginBottom:2,fontWeight:600}}>{f.l}</div>
-                  <div style={{fontSize:9,color:MUTED,marginBottom:4}}>{f.note}</div>
-                  <select value={f.v} onChange={e=>f.s(e.target.value)} style={ss2}>
-                    <option value="">None</option>
-                    {headers.map(h=><option key={h} value={h}>{h}</option>)}
-                  </select>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,padding:14,marginBottom:14,overflowX:"auto"}}>
-            <div style={{fontSize:11,fontWeight:700,color:MUTED,marginBottom:8,letterSpacing:1}}>PREVIEW — FIRST 5 ROWS</div>
-            <table style={{borderCollapse:"collapse",fontSize:11}}>
-              <thead><tr style={{background:"#0e1e50"}}>
-                {headers.map(h=><th key={h} style={{padding:"4px 8px",color:h===lyCol?"#60a5fa":h===planCol?"#fbbf24":h===storeCol||h===dateCol?"#a3e635":"#555",fontWeight:600,borderBottom:`1px solid ${RED}`,whiteSpace:"nowrap"}}>{h}</th>)}
-              </tr></thead>
-              <tbody>
-                {rows.slice(0,5).map((r,i)=>(
-                  <tr key={i} style={{background:i%2===0?CARD:"#1c2333",borderBottom:`1px solid ${BORDER}`}}>
-                    {headers.map(h=><td key={h} style={{padding:"3px 8px",color:TEXT,whiteSpace:"nowrap"}}>{r[h]}</td>)}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div style={{fontSize:11,color:MUTED,marginTop:6}}>📊 {rows.length.toLocaleString()} rows · {[...new Set(rows.map(r=>String(r[storeCol]||"").split(/[\s\-]/)[0].replace(/\D/g,"")))].filter(id=>STORES.find(s=>s.id===id)).length} stores recognized</div>
-          </div>
-
-          {result?(
-            <div style={{background:"#0a1f0a",border:"1px solid #1e3a1e",borderRadius:8,padding:14}}>
-              <div style={{fontSize:14,fontWeight:700,color:"#4ade80",marginBottom:6}}>✅ Import Complete!</div>
-              <div style={{fontSize:13,color:"#c8d0e8",marginBottom:4}}><strong style={{color:"#4ade80"}}>{result.matched}</strong> days imported across <strong style={{color:"#4ade80"}}>{result.stores}</strong> stores → FY{tgtFy} P{tgtPeriod} {tgtInfo?.label}</div>
-              <div style={{fontSize:12,color:"#7d8590",marginBottom:8}}>Stores: {result.storeNames?.join(", ")}</div>
-              <div style={{fontSize:12,color:"#fbbf24",marginBottom:4}}>⚠️ Store managers need to <strong>switch periods and back</strong> (or sign out and in) to see the new LY data.</div>
-              {result.skipped>0&&<div style={{fontSize:12,color:"#f87171"}}>⚠️ {result.skipped} rows skipped — outside target period</div>}
-              <button onClick={()=>{setRows([]);setHeaders([]);setResult(null);setSrcInfo(null);}} style={{background:"#21262d",color:MUTED,border:`1px solid ${BORDER}`,borderRadius:5,padding:"6px 14px",cursor:"pointer",fontSize:12,marginTop:10}}>Upload Another Region</button>
-            </div>
-          ):(
-            <button onClick={doImport} disabled={!storeCol||!dateCol||!lyCol||importing}
-              style={{background:storeCol&&dateCol&&lyCol?BLUE:"#21262d",color:"#fff",border:"none",borderRadius:6,padding:"10px 24px",fontWeight:700,cursor:storeCol&&dateCol&&lyCol?"pointer":"default",fontSize:14,opacity:storeCol&&dateCol&&lyCol?1:0.5}}>
-              {importing?"Importing...":`📥 Import ${rows.length} rows → FY${tgtFy} P${tgtPeriod} ${tgtInfo?.label}`}
-            </button>
-          )}
-        </>
-      )}
-    </div>
-  );
+function renderStoreTabContent(tab,dates,pInfo,data,admData,calc,T,regionStores,user,fy,period,mKey){
+  const el=document.getElementById("store-tab-content");
+  if(tab==="entry"){
+    el.innerHTML=`<div style="overflow-x:auto">
+      <table>
+        <thead><tr style="background:#0e1e50">
+          <th style="text-align:left">Date</th><th style="text-align:right">Store Sales</th><th style="text-align:right">CGXpress</th><th style="text-align:right">Total Sales</th><th style="text-align:right">Plan</th><th style="text-align:right">LY Sales</th><th style="text-align:right">Var to LY</th><th style="text-align:right">Var to Plan</th><th style="text-align:right">Gas Sales</th><th style="text-align:right">Total w/Gas</th><th style="text-align:left;min-width:160px">Anomalies/Comments</th><th style="text-align:right">Txn #</th>
+        </tr></thead>
+        <tbody>
+          ${dates.map((d,i)=>{
+            const ds=fmtDate(d),r=data[ds]||{},c=calc(ds),wk=d.getDay()===0||d.getDay()===6;
+            const dayNum=Math.floor((d-pInfo.start)/(1000*60*60*24)),wkStart=dayNum%7===0;
+            return `<tr style="background:${wk?"#1a1c30":i%2===0?"#161b22":"#1c2333"};border-bottom:${wkStart&&i>0?"2px solid #2a3a5a":"1px solid #21262d"}">
+              <td style="font-weight:600;white-space:nowrap;color:${wk?"#818cf8":"#e6edf3"};padding:3px 8px">${ds}${wkStart&&i>0?`<span style="font-size:9px;color:#7d8590;margin-left:4px">W${Math.floor(dayNum/7)+1}</span>`:""}</td>
+              <td><input type="number" value="${r.ss||""}" onchange="updateField('${ds}','ss',this.value,'${user.id}','${mKey}')" placeholder="0.00"></td>
+              <td><input type="number" value="${r.cx||""}" onchange="updateField('${ds}','cx',this.value,'${user.id}','${mKey}')" placeholder="0.00" style="width:80px"></td>
+              <td style="text-align:right;color:${c.tot>0?"#4ade80":"#4b5563"}">${fmtC(c.tot)}</td>
+              <td style="text-align:right;color:#fbbf24">${c.plan>0?fmtC(c.plan):"<span style='color:#374151'>—</span>"}</td>
+              <td style="text-align:right;color:#60a5fa">${c.ly>0?fmtC(c.ly):"<span style='color:#374151'>—</span>"}</td>
+              <td style="text-align:right;color:${vc(c.vLY)}">${c.ly>0?fmtC(c.vLY):"<span style='color:#374151'>—</span>"}</td>
+              <td style="text-align:right;color:${vc(c.vPlan)}">${c.plan>0?fmtC(c.vPlan):"<span style='color:#374151'>—</span>"}</td>
+              <td><input type="number" value="${r.gs||""}" onchange="updateField('${ds}','gs',this.value,'${user.id}','${mKey}')" placeholder="0.00" style="width:80px"></td>
+              <td style="text-align:right;color:#67e8f9">${fmtC(c.totG)}</td>
+              <td><input type="text" class="note" value="${(r.notes||"").replace(/"/g,"&quot;")}" onchange="updateField('${ds}','notes',this.value,'${user.id}','${mKey}')" placeholder="Notes..."></td>
+              <td><input type="number" value="${r.txn||""}" onchange="updateField('${ds}','txn',this.value,'${user.id}','${mKey}')" placeholder="0" style="width:55px"></td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+        <tfoot><tr>
+          <td style="padding:7px 8px;color:#CC0000;font-weight:800">TOTALS</td>
+          <td style="text-align:right;color:#4ade80;padding:7px 6px">${fmtC(T.ss)}</td><td style="text-align:right;color:#4ade80;padding:7px 6px">${fmtC(T.cx)}</td>
+          <td style="text-align:right;color:#4ade80;padding:7px 6px">${fmtC(T.tot)}</td><td style="text-align:right;color:#fbbf24;padding:7px 6px">${fmtC(T.plan)}</td>
+          <td style="text-align:right;color:#60a5fa;padding:7px 6px">${fmtC(T.ly)}</td><td style="text-align:right;padding:7px 6px;color:${vc(T.vLY)}">${fmtC(T.vLY)}</td>
+          <td style="text-align:right;padding:7px 6px;color:${vc(T.vPlan)}">${fmtC(T.vPlan)}</td><td style="text-align:right;color:#67e8f9;padding:7px 6px">${fmtC(T.gs)}</td>
+          <td style="text-align:right;color:#67e8f9;padding:7px 6px">${fmtC(T.totG)}</td><td colspan="2"></td>
+        </tr></tfoot>
+      </table></div>`;
+  } else {
+    const store=STORES.find(s=>s.id===user.id);
+    el.innerHTML=`<div style="padding:16px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:12px;color:#c8d0e8">${store?.region} — ${REGIONS[store?.region||""]} · FY${fy} P${period}</div>
+      <table>
+        <thead><tr style="background:#0e1e50">
+          <th style="text-align:left">Store</th><th style="text-align:left">Manager</th><th style="text-align:right">PTD Sales</th><th style="text-align:right">Days Entered</th>
+        </tr></thead>
+        <tbody>
+          ${regionStores.map((s,i)=>{
+            const sd=loadData(`store:${s.id}:fy${fy}-p${period}`);
+            const tot=dates.reduce((a,d)=>{const r=sd[fmtDate(d)]||{};return a+(parseFloat(r.ss)||0)+(parseFloat(r.cx)||0);},0);
+            const days=dates.filter(d=>{const r=sd[fmtDate(d)]||{};return(parseFloat(r.ss)||0)+(parseFloat(r.cx)||0)>0;}).length;
+            const isOwn=s.id===user.id;
+            return `<tr style="background:${isOwn?"#0e1e50":i%2===0?"#161b22":"#1c2333"};border-bottom:1px solid #21262d">
+              <td style="padding:7px 10px;font-weight:${isOwn?700:400};color:${isOwn?"#fbbf24":"#e6edf3"}">${s.name}${isOwn?"<span style='font-size:10px;color:#fbbf24;margin-left:6px'>(your store)</span>":""}</td>
+              <td style="padding:7px 10px;color:#7d8590;font-size:12px">${s.manager}</td>
+              <td style="padding:7px 10px;text-align:right;color:${tot>0?"#4ade80":"#4b5563"};font-weight:600">${fmtC(tot)}</td>
+              <td style="padding:7px 10px;text-align:right;color:${days>0?"#a3e635":"#7d8590"}">${days}/${dates.length}</td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table></div>`;
+  }
 }
 
-// ── ADMIN VIEW ────────────────────────────────────────────────
-function AdminView({user,onLogout,fy,setFy,period,setPeriod,users,setUsers}){
-  const [tab,setTab]=useState("dashboard");
-  const [allData,setAllData]=useState({});
-  const [lyPlan,setLyPlan]=useState({});
-  const [loading,setLoading]=useState(true);
-  const [region,setRegion]=useState("All");
-  const [saving,setSaving]=useState(false);
-  const [saved,setSaved]=useState(false);
-  const [newUser,setNewUser]=useState({name:"",email:"",role:"manager",storeId:"",region:""});
-  const periods=getFiscalPeriods(fy);
-  const pInfo=periods[period-1];
+window._editBuffer={};
+function updateField(ds,field,val,storeId,mKey){
+  if(!window._editBuffer[ds])window._editBuffer[ds]={};
+  window._editBuffer[ds][field]=val;
+}
+function saveStoreData(sKey){
+  const btn=document.getElementById("save-btn");
+  btn.textContent="Saving...";
+  const existing=loadData(sKey);
+  for(const[ds,fields]of Object.entries(window._editBuffer||{})){
+    existing[ds]={...(existing[ds]||{}),...fields};
+  }
+  saveData(sKey,existing);
+  window._editBuffer={};
+  btn.textContent="✓ Saved!";btn.style.background="#166534";
+  setTimeout(()=>{btn.textContent="💾 Save";btn.style.background="#CC0000";},2500);
+}
+
+// ─── ADMIN VIEW ──────────────────────────────────────────────
+function renderAdminView(fy,period){
+  const pInfo=getFiscalPeriods(fy)[period-1];
   const dates=getDatesForPeriod(fy,period);
   const mKey=`fy${fy}-p${period}`;
-
-  useEffect(()=>{
-    (async()=>{
-      setLoading(true);
-      const d={},lp={};
-      for(const s of STORES){
-        try{const r=await window.storage.get(`store:${s.id}:${mKey}`,true);d[s.id]=r?JSON.parse(r.value):{};}catch{d[s.id]={};}
-        try{const r=await window.storage.get(`adm:${mKey}:${s.id}`,true);lp[s.id]=r?JSON.parse(r.value):{};}catch{lp[s.id]={};}
-      }
-      setAllData(d);setLyPlan(lp);setLoading(false);
-    })();
-  },[mKey]);
-
-  const saveLyPlan=async()=>{setSaving(true);for(const s of STORES){try{if(lyPlan[s.id])await window.storage.set(`adm:${mKey}:${s.id}`,JSON.stringify(lyPlan[s.id]),true);}catch(e){console.error(e);}}setSaved(true);setTimeout(()=>setSaved(false),2500);setSaving(false);};
-  const updLP=(sid,ds,f,v)=>setLyPlan(p=>({...p,[sid]:{...(p[sid]||{}),[ds]:{...((p[sid]||{})[ds]||{}),[f]:v}}}));
+  const adminTab=window._adminTab||"dashboard";
 
   const storeCalc=sid=>{
-    const sd=allData[sid]||{},lp=lyPlan[sid]||{};
+    const sd=loadData(`store:${sid}:${mKey}`),lp=loadData(`adm:${mKey}:${sid}`);
     let ss=0,cx=0,tot=0,gs=0,totG=0,ly=0,plan=0,days=0;
     dates.forEach(d=>{const ds=fmtDate(d),r=sd[ds]||{},a=lp[ds]||{},_ss=parseFloat(r.ss)||0,_cx=parseFloat(r.cx)||0,_gs=parseFloat(r.gs)||0,_t=_ss+_cx;ss+=_ss;cx+=_cx;tot+=_t;gs+=_gs;totG+=_t+_gs;ly+=parseFloat(a.ly)||0;plan+=parseFloat(a.plan)||0;if(_t>0)days++;});
     return{ss,cx,tot,gs,totG,ly,plan,vLY:tot-ly,vPlan:tot-plan,days};
   };
-
   const GT=STORES.reduce((a,s)=>{const c=storeCalc(s.id);return{tot:a.tot+c.tot,ly:a.ly+c.ly,plan:a.plan+c.plan,vLY:a.vLY+c.vLY,vPlan:a.vPlan+c.vPlan,gs:a.gs+c.gs};},{tot:0,ly:0,plan:0,vLY:0,vPlan:0,gs:0});
-  const fStores=region==="All"?STORES:STORES.filter(s=>s.region===region);
-  const barData=Object.entries(REGIONS).map(([rKey])=>{const rS=STORES.filter(s=>s.region===rKey);return{region:rKey.replace("Region ","R"),Sales:Math.round(rS.reduce((a,s)=>a+storeCalc(s.id).tot,0)),Plan:Math.round(rS.reduce((a,s)=>a+storeCalc(s.id).plan,0)),LY:Math.round(rS.reduce((a,s)=>a+storeCalc(s.id).ly,0))};});
-  const lineData=dates.map(d=>{const ds=fmtDate(d);let t=0;STORES.forEach(s=>{const r=(allData[s.id]||{})[ds]||{};t+=(parseFloat(r.ss)||0)+(parseFloat(r.cx)||0);});return{date:ds,Sales:Math.round(t)};});
 
-  const addUser=async()=>{
-    if(!newUser.name||!newUser.email)return;
-    const u={...newUser,id:`u-${Date.now()}`};
-    const updated=[...users,u];setUsers(updated);
-    try{await window.storage.set("cgx-users",JSON.stringify(updated),true);}catch(e){console.error(e);}
-    setNewUser({name:"",email:"",role:"manager",storeId:"",region:""});
-  };
-  const removeUser=async(id)=>{const updated=users.filter(u=>u.id!==id);setUsers(updated);try{await window.storage.set("cgx-users",JSON.stringify(updated),true);}catch(e){console.error(e);}};
-
-  const TabBtn=({id,lbl})=><button onClick={()=>setTab(id)} style={{background:tab===id?RED:"#21262d",color:TEXT,border:`1px solid ${tab===id?RED:BORDER}`,borderRadius:4,padding:"6px 12px",cursor:"pointer",fontWeight:tab===id?700:400,fontSize:12}}>{lbl}</button>;
-  const th=(t,r=true)=><th key={t} style={{padding:"7px 8px",textAlign:r?"right":"left",fontSize:11,color:"#c8d0e8",fontWeight:600,borderBottom:`2px solid ${RED}`,whiteSpace:"nowrap"}}>{t}</th>;
-  const inp2=(ph,val,onChange,w="100%")=><input placeholder={ph} value={val} onChange={e=>onChange(e.target.value)} style={{background:"#0d1117",color:TEXT,border:`1px solid ${BORDER}`,borderRadius:4,padding:"5px 8px",fontSize:12,width:w}}/>;
-
-  return(
-    <div style={{background:DARK,minHeight:"100vh",fontFamily:"Segoe UI,sans-serif",color:TEXT}}>
-      <Header title="Admin Dashboard"
-        sub={`FY${fy} ${pInfo?.quarter} P${period} ${pInfo?.label} · ${pInfo?fmtRange(pInfo):""} · ${user.name}`}
-        fy={fy} setFy={setFy} period={period} setPeriod={setPeriod}
-        extra={<button onClick={onLogout} style={{background:"#21262d",color:MUTED,border:`1px solid ${BORDER}`,borderRadius:5,padding:"7px 10px",cursor:"pointer",fontSize:12}}>Sign out</button>}
-      />
-      <div style={{background:CARD,padding:"8px 16px",display:"flex",gap:8,borderBottom:`1px solid ${BORDER}`,flexWrap:"wrap"}}>
-        <TabBtn id="dashboard" lbl="📊 Dashboard"/>
-        <TabBtn id="stores" lbl="🏪 All Stores"/>
-        <TabBtn id="lyplan" lbl="🔒 LY & Plan"/>
-        <TabBtn id="import" lbl="📥 Import Data"/>
-        <TabBtn id="users" lbl="👥 Users"/>
-      </div>
-
-      {loading?<div style={{padding:40,textAlign:"center",color:MUTED}}>Loading all stores...</div>:(
-        tab==="dashboard"?(
-          <div style={{padding:16}}>
-            <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:20}}>
-              {[{l:"NETWORK SALES",v:fmtC(GT.tot),c:"#4ade80"},{l:"NETWORK PLAN",v:GT.plan>0?fmtC(GT.plan):"Not set",c:"#fbbf24"},{l:"VAR TO PLAN",v:GT.plan>0?fmtC(GT.vPlan):"—",c:vc(GT.vPlan)},{l:"NETWORK LY",v:GT.ly>0?fmtC(GT.ly):"Not set",c:"#60a5fa"},{l:"VAR TO LY",v:GT.ly>0?fmtC(GT.vLY):"—",c:vc(GT.vLY)},{l:"GAS SALES",v:fmtC(GT.gs),c:"#67e8f9"},{l:"STORES REPORTING",v:`${STORES.filter(s=>storeCalc(s.id).days>0).length} / 62`,c:MUTED}].map(s=>(
-                <div key={s.l} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,padding:"12px 16px",minWidth:130}}>
-                  <div style={{fontSize:10,color:MUTED,marginBottom:3}}>{s.l}</div>
-                  <div style={{fontSize:18,fontWeight:700,color:s.c}}>{s.v}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-              <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,padding:14}}>
-                <div style={{fontSize:13,fontWeight:600,marginBottom:10}}>PTD Sales by Region</div>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={barData}><CartesianGrid strokeDasharray="3 3" stroke={BORDER}/><XAxis dataKey="region" tick={{fill:MUTED,fontSize:11}}/><YAxis tick={{fill:MUTED,fontSize:10}} tickFormatter={v=>v>=1000?`${(v/1000).toFixed(0)}k`:v}/><Tooltip formatter={v=>fmtC(v)} contentStyle={{background:CARD,border:`1px solid ${BORDER}`,color:TEXT,fontSize:12}}/><Bar dataKey="Sales" fill={BLUE} radius={[3,3,0,0]}/><Bar dataKey="Plan" fill="#fbbf24" radius={[3,3,0,0]}/><Bar dataKey="LY" fill="#60a5fa" radius={[3,3,0,0]}/></BarChart>
-                </ResponsiveContainer>
-              </div>
-              <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,padding:14}}>
-                <div style={{fontSize:13,fontWeight:600,marginBottom:10}}>Daily Network Sales Trend</div>
-                <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={lineData}><CartesianGrid strokeDasharray="3 3" stroke={BORDER}/><XAxis dataKey="date" tick={{fill:MUTED,fontSize:10}} interval={Math.floor(dates.length/6)}/><YAxis tick={{fill:MUTED,fontSize:10}} tickFormatter={v=>v>=1000?`${(v/1000).toFixed(0)}k`:v}/><Tooltip formatter={v=>fmtC(v)} contentStyle={{background:CARD,border:`1px solid ${BORDER}`,color:TEXT,fontSize:12}}/><Line type="monotone" dataKey="Sales" stroke="#4ade80" dot={false} strokeWidth={2}/></LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-        ):tab==="stores"?(
-          <div style={{padding:16}}>
-            <div style={{display:"flex",gap:8,marginBottom:12,alignItems:"center",flexWrap:"wrap"}}>
-              <span style={{fontSize:12,color:MUTED}}>Region:</span>
-              {["All",...Object.keys(REGIONS)].map(r=><button key={r} onClick={()=>setRegion(r)} style={{background:region===r?BLUE:"#21262d",color:TEXT,border:`1px solid ${region===r?BLUE:BORDER}`,borderRadius:4,padding:"4px 10px",cursor:"pointer",fontSize:12}}>{r==="All"?"All":r+" — "+REGIONS[r]}</button>)}
-            </div>
-            <div style={{overflowX:"auto"}}>
-              <table style={{width:"100%",borderCollapse:"collapse"}}>
-                <thead><tr style={{background:"#0e1e50"}}>{th("Store",false)}{th("Manager",false)}{th("Region",false)}{th("PTD Sales")}{th("Plan")}{th("Var to Plan")}{th("LY Sales")}{th("Var to LY")}{th("Gas")}{th("Days In")}</tr></thead>
-                <tbody>
-                  {fStores.map((s,i)=>{const c=storeCalc(s.id);return(
-                    <tr key={s.id} style={{background:i%2===0?CARD:"#1c2333",borderBottom:`1px solid ${BORDER}`}}>
-                      <td style={{padding:"6px 10px",fontWeight:600}}>{s.name}</td>
-                      <td style={{padding:"6px 10px",color:MUTED,fontSize:12}}>{s.manager||"—"}</td>
-                      <td style={{padding:"6px 10px",color:MUTED,fontSize:12}}>{s.region}</td>
-                      <td style={{padding:"6px 10px",textAlign:"right",color:c.tot>0?"#4ade80":"#4b5563",fontWeight:600}}>{fmtC(c.tot)}</td>
-                      <td style={{padding:"6px 10px",textAlign:"right",color:"#fbbf24"}}>{c.plan>0?fmtC(c.plan):<span style={{color:"#374151"}}>—</span>}</td>
-                      <td style={{padding:"6px 10px",textAlign:"right",color:vc(c.vPlan)}}>{c.plan>0?fmtC(c.vPlan):<span style={{color:"#374151"}}>—</span>}</td>
-                      <td style={{padding:"6px 10px",textAlign:"right",color:"#60a5fa"}}>{c.ly>0?fmtC(c.ly):<span style={{color:"#374151"}}>—</span>}</td>
-                      <td style={{padding:"6px 10px",textAlign:"right",color:vc(c.vLY)}}>{c.ly>0?fmtC(c.vLY):<span style={{color:"#374151"}}>—</span>}</td>
-                      <td style={{padding:"6px 10px",textAlign:"right",color:"#67e8f9"}}>{fmtC(c.gs)}</td>
-                      <td style={{padding:"6px 10px",textAlign:"right",color:c.days>0?"#a3e635":MUTED}}>{c.days}/{dates.length}</td>
-                    </tr>
-                  );})}
-                </tbody>
-                <tfoot><tr style={{background:"#0e1e50",borderTop:`2px solid ${RED}`,fontWeight:700}}>
-                  <td colSpan={3} style={{padding:"8px 10px",color:RED,fontWeight:800}}>NETWORK TOTALS</td>
-                  <td style={{padding:"8px 10px",textAlign:"right",color:"#4ade80"}}>{fmtC(GT.tot)}</td>
-                  <td style={{padding:"8px 10px",textAlign:"right",color:"#fbbf24"}}>{fmtC(GT.plan)}</td>
-                  <td style={{padding:"8px 10px",textAlign:"right",color:vc(GT.vPlan)}}>{fmtC(GT.vPlan)}</td>
-                  <td style={{padding:"8px 10px",textAlign:"right",color:"#60a5fa"}}>{fmtC(GT.ly)}</td>
-                  <td style={{padding:"8px 10px",textAlign:"right",color:vc(GT.vLY)}}>{fmtC(GT.vLY)}</td>
-                  <td style={{padding:"8px 10px",textAlign:"right",color:"#67e8f9"}}>{fmtC(GT.gs)}</td>
-                  <td/>
-                </tr></tfoot>
-              </table>
-            </div>
-          </div>
-        ):tab==="lyplan"?(
-          <div style={{padding:16}}>
-            <div style={{background:"#1f0a0a",border:`1px solid ${RED}`,borderRadius:6,padding:"10px 16px",marginBottom:14,fontSize:12,color:"#fca5a5",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-              <span>🔒 LY & Plan entry for FY{fy} P{period} · {pInfo?.label} ({pInfo?fmtRange(pInfo):""}, {pInfo?.weeks} weeks)</span>
-              <button onClick={saveLyPlan} style={{background:saved?"#166534":RED,color:"#fff",border:"none",borderRadius:5,padding:"6px 16px",fontWeight:700,cursor:"pointer",fontSize:12}}>{saving?"Saving...":saved?"✓ Saved!":"💾 Save All"}</button>
-            </div>
-            {Object.entries(REGIONS).map(([rKey,rMgr])=>(
-              <div key={rKey} style={{marginBottom:14}}>
-                <div style={{fontSize:11,color:MUTED,fontWeight:700,letterSpacing:1,padding:"4px 0 6px"}}>{rKey} — {rMgr}</div>
-                {STORES.filter(s=>s.region===rKey).map(s=>(
-                  <details key={s.id} style={{marginBottom:5}}>
-                    <summary style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:6,padding:"7px 12px",cursor:"pointer",fontWeight:600,color:TEXT,fontSize:13,listStyle:"none",display:"flex",justifyContent:"space-between"}}>
-                      <span>{s.name} <span style={{color:MUTED,fontWeight:400,fontSize:12}}>· {s.manager}</span></span>
-                      <span style={{color:MUTED,fontSize:11}}>▼</span>
-                    </summary>
-                    <div style={{background:"#0d1117",border:`1px solid ${BORDER}`,borderTop:"none",borderRadius:"0 0 6px 6px",padding:10,overflowX:"auto"}}>
-                      <table style={{borderCollapse:"collapse"}}>
-                        <thead><tr style={{background:"#1c0a0a"}}>
-                          <th style={{padding:"5px 12px",textAlign:"left",color:"#fca5a5",fontSize:11,borderBottom:`1px solid ${RED}`}}>Date</th>
-                          <th style={{padding:"5px 10px",textAlign:"right",color:"#fca5a5",fontSize:11,borderBottom:`1px solid ${RED}`}}>LY Sales</th>
-                          <th style={{padding:"5px 10px",textAlign:"right",color:"#86efac",fontSize:11,borderBottom:`1px solid ${RED}`}}>Plan / Budget</th>
-                        </tr></thead>
-                        <tbody>
-                          {dates.map((d,i)=>{const ds=fmtDate(d),a=((lyPlan[s.id]||{})[ds])||{};return(
-                            <tr key={ds} style={{background:i%2===0?"#110808":"#150a0a",borderBottom:"1px solid #1f1010"}}>
-                              <td style={{padding:"2px 12px",color:"#d1d5db",whiteSpace:"nowrap",fontSize:12}}>{ds}</td>
-                              <td style={{padding:"2px 6px",textAlign:"right"}}><input type="number" value={a.ly||""} onChange={e=>updLP(s.id,ds,"ly",e.target.value)} style={{background:"#1f0808",color:"#fca5a5",border:"1px solid #3a1010",borderRadius:3,padding:"2px 6px",fontSize:12,width:100,textAlign:"right"}} placeholder="0.00"/></td>
-                              <td style={{padding:"2px 6px",textAlign:"right"}}><input type="number" value={a.plan||""} onChange={e=>updLP(s.id,ds,"plan",e.target.value)} style={{background:"#0a1f0a",color:"#86efac",border:"1px solid #1e3a1e",borderRadius:3,padding:"2px 6px",fontSize:12,width:100,textAlign:"right"}} placeholder="0.00"/></td>
-                            </tr>
-                          );})}
-                        </tbody>
-                      </table>
-                    </div>
-                  </details>
-                ))}
-              </div>
-            ))}
-          </div>
-        ):tab==="import"?(
-          <ImportTab fy={fy} period={period}/>
-        ):(
-          <div style={{padding:16}}>
-            <div style={{fontSize:13,fontWeight:600,marginBottom:14,color:"#c8d0e8"}}>👥 User Management</div>
-            <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,padding:14,marginBottom:20}}>
-              <div style={{fontSize:12,fontWeight:600,color:MUTED,marginBottom:10}}>ADD NEW USER</div>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
-                <div><div style={{fontSize:10,color:MUTED,marginBottom:3}}>FULL NAME</div>{inp2("Jane Smith",newUser.name,v=>setNewUser(p=>({...p,name:v})),"150px")}</div>
-                <div><div style={{fontSize:10,color:MUTED,marginBottom:3}}>EMAIL</div>{inp2("jane@cgexchange.org",newUser.email,v=>setNewUser(p=>({...p,email:v})),"190px")}</div>
-                <div><div style={{fontSize:10,color:MUTED,marginBottom:3}}>ROLE</div>
-                  <select value={newUser.role} onChange={e=>setNewUser(p=>({...p,role:e.target.value}))} style={{...sel_s,width:110}}>
-                    <option value="manager">Manager</option><option value="lead">Lead</option><option value="admin">Admin</option>
-                  </select>
-                </div>
-                {(newUser.role==="manager"||newUser.role==="lead")&&(
-                  <div><div style={{fontSize:10,color:MUTED,marginBottom:3}}>STORE</div>
-                    <select value={newUser.storeId} onChange={e=>setNewUser(p=>({...p,storeId:e.target.value}))} style={{...sel_s,width:180}}>
-                      <option value="">Select store...</option>
-                      {STORES.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
-                  </div>
-                )}
-                {newUser.role==="admin"&&(
-                  <div><div style={{fontSize:10,color:MUTED,marginBottom:3}}>REGION</div>
-                    <select value={newUser.region} onChange={e=>setNewUser(p=>({...p,region:e.target.value}))} style={{...sel_s,width:150}}>
-                      <option value="">All Regions</option>
-                      {Object.entries(REGIONS).map(([k,v])=><option key={k} value={k}>{k} — {v}</option>)}
-                    </select>
-                  </div>
-                )}
-                <button onClick={addUser} style={{background:BLUE,color:"#fff",border:"none",borderRadius:5,padding:"7px 16px",fontWeight:700,cursor:"pointer",fontSize:12}}>+ Add User</button>
-              </div>
-            </div>
-            <table style={{width:"100%",borderCollapse:"collapse"}}>
-              <thead><tr style={{background:"#0e1e50"}}>
-                {["Name","Email","Role","Store / Region",""].map((h,i)=><th key={i} style={{padding:"7px 10px",textAlign:"left",fontSize:11,color:"#c8d0e8",fontWeight:600,borderBottom:`2px solid ${RED}`}}>{h}</th>)}
-              </tr></thead>
-              <tbody>
-                {users.map((u,i)=>{
-                  const store=STORES.find(s=>s.id===u.storeId);
-                  const isDefault=DEFAULT_USERS.some(d=>d.id===u.id);
-                  return(
-                    <tr key={u.id} style={{background:i%2===0?CARD:"#1c2333",borderBottom:`1px solid ${BORDER}`}}>
-                      <td style={{padding:"7px 10px",fontWeight:600}}>{u.name}</td>
-                      <td style={{padding:"7px 10px",color:MUTED,fontSize:12}}>{u.email}</td>
-                      <td style={{padding:"7px 10px"}}><span style={{background:ROLE_COLORS[u.role]+"22",color:ROLE_COLORS[u.role],fontSize:11,padding:"2px 8px",borderRadius:10,border:`1px solid ${ROLE_COLORS[u.role]}44`}}>{ROLE_LABELS[u.role]}</span></td>
-                      <td style={{padding:"7px 10px",color:MUTED,fontSize:12}}>{store?store.name:u.region||"All Regions"}</td>
-                      <td style={{padding:"7px 10px"}}>{!isDefault?<button onClick={()=>removeUser(u.id)} style={{background:"#2a1010",color:"#f87171",border:"1px solid #3a1010",borderRadius:4,padding:"3px 10px",cursor:"pointer",fontSize:11}}>Remove</button>:<span style={{color:"#374151",fontSize:11}}>Built-in</span>}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )
-      )}
+  document.getElementById("view-container").innerHTML=`
+    <div class="tab-bar">
+      <button class="tab-btn${adminTab==="dashboard"?" active":""}" onclick="setAdminTab('dashboard')">📊 Dashboard</button>
+      <button class="tab-btn${adminTab==="stores"?" active":""}" onclick="setAdminTab('stores')">🏪 All Stores</button>
+      <button class="tab-btn${adminTab==="lyplan"?" active":""}" onclick="setAdminTab('lyplan')">🔒 LY & Plan</button>
+      <button class="tab-btn${adminTab==="import"?" active":""}" onclick="setAdminTab('import')">📥 Import Data</button>
+      <button class="tab-btn${adminTab==="users"?" active":""}" onclick="setAdminTab('users')">👥 Users</button>
     </div>
-  );
+    <div id="admin-tab-content"></div>`;
+
+  renderAdminTabContent(adminTab,storeCalc,GT,dates,pInfo,fy,period,mKey);
 }
 
-// ── ROOT ──────────────────────────────────────────────────────
-export default function App(){
-  const [user,setUser]=useState(null);
-  const [users,setUsers]=useState(DEFAULT_USERS);
-  const [fy,setFy]=useState(2026);
-  const [period,setPeriod]=useState(4);
+function setAdminTab(tab){window._adminTab=tab;refreshView();}
 
-  useEffect(()=>{
-    (async()=>{
-      try{const r=await window.storage.get("cgx-users",true);if(r)setUsers(JSON.parse(r.value));}catch{}
-      const now=new Date();
-      for(let y=2025;y<=2027;y++){
-        const ps=getFiscalPeriods(y);
-        for(const p of ps){if(now>=p.start&&now<=p.end){setFy(y);setPeriod(p.num);return;}}
-      }
-    })();
-  },[]);
+function renderAdminTabContent(tab,storeCalc,GT,dates,pInfo,fy,period,mKey){
+  const el=document.getElementById("admin-tab-content");
+  const regionFilter=window._regionFilter||"All";
 
-  if(!user)return <Login onLogin={setUser} users={users}/>;
-  if(user.role==="admin")return <AdminView user={user} onLogout={()=>setUser(null)} fy={fy} setFy={setFy} period={period} setPeriod={setPeriod} users={users} setUsers={setUsers}/>;
-  return <StoreView user={user} onLogout={()=>setUser(null)} fy={fy} setFy={setFy} period={period} setPeriod={setPeriod}/>;
+  if(tab==="dashboard"){
+    el.innerHTML=`<div style="padding:16px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">
+        ${[["NETWORK SALES",fmtC(GT.tot),"#4ade80"],["NETWORK PLAN",GT.plan>0?fmtC(GT.plan):"Not set","#fbbf24"],["VAR TO PLAN",GT.plan>0?fmtC(GT.vPlan):"—",vc(GT.vPlan)],["NETWORK LY",GT.ly>0?fmtC(GT.ly):"Not set","#60a5fa"],["VAR TO LY",GT.ly>0?fmtC(GT.vLY):"—",vc(GT.vLY)],["GAS SALES",fmtC(GT.gs),"#67e8f9"],["STORES REPORTING",`${STORES.filter(s=>storeCalc(s.id).days>0).length} / ${STORES.length}`,"#7d8590"]].map(([l,v,c])=>`<div class="card" style="min-width:130px"><div style="font-size:10px;color:#7d8590;margin-bottom:3px">${l}</div><div style="font-size:18px;font-weight:700;color:${c}">${v}</div></div>`).join("")}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="card"><div style="font-size:13px;font-weight:600;margin-bottom:8px">PTD Sales by Region</div><div id="bar-chart" style="height:200px;display:flex;align-items:flex-end;gap:4px;padding:0 4px">${renderBarChart(storeCalc)}</div></div>
+        <div class="card"><div style="font-size:13px;font-weight:600;margin-bottom:8px">Stores Reporting Progress</div>${renderProgressBars(storeCalc,dates)}</div>
+      </div></div>`;
+  } else if(tab==="stores"){
+    const fStores=regionFilter==="All"?STORES:STORES.filter(s=>s.region===regionFilter);
+    el.innerHTML=`<div style="padding:16px">
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:12px;color:#7d8590">Region:</span>
+        ${["All",...Object.keys(REGIONS)].map(r=>`<button onclick="window._regionFilter='${r}';setAdminTab('stores')" style="background:${regionFilter===r?"#003087":"#21262d"};color:#e6edf3;border:1px solid ${regionFilter===r?"#003087":"#21262d"};border-radius:4px;padding:4px 10px;cursor:pointer;font-size:12px">${r==="All"?"All":r+" — "+REGIONS[r]}</button>`).join("")}
+      </div>
+      <div style="overflow-x:auto">
+      <table>
+        <thead><tr style="background:#0e1e50"><th style="text-align:left">Store</th><th style="text-align:left">Manager</th><th style="text-align:left">Region</th><th>PTD Sales</th><th>Plan</th><th>Var to Plan</th><th>LY Sales</th><th>Var to LY</th><th>Gas</th><th>Days In</th></tr></thead>
+        <tbody>
+          ${fStores.map((s,i)=>{const c=storeCalc(s.id);return`<tr style="background:${i%2===0?"#161b22":"#1c2333"};border-bottom:1px solid #21262d">
+            <td style="padding:6px 10px;font-weight:600">${s.name}</td><td style="padding:6px 10px;color:#7d8590;font-size:12px">${s.manager}</td><td style="padding:6px 10px;color:#7d8590;font-size:12px">${s.region}</td>
+            <td style="text-align:right;padding:6px 10px;color:${c.tot>0?"#4ade80":"#4b5563"};font-weight:600">${fmtC(c.tot)}</td>
+            <td style="text-align:right;padding:6px 10px;color:#fbbf24">${c.plan>0?fmtC(c.plan):"<span style='color:#374151'>—</span>"}</td>
+            <td style="text-align:right;padding:6px 10px;color:${vc(c.vPlan)}">${c.plan>0?fmtC(c.vPlan):"<span style='color:#374151'>—</span>"}</td>
+            <td style="text-align:right;padding:6px 10px;color:#60a5fa">${c.ly>0?fmtC(c.ly):"<span style='color:#374151'>—</span>"}</td>
+            <td style="text-align:right;padding:6px 10px;color:${vc(c.vLY)}">${c.ly>0?fmtC(c.vLY):"<span style='color:#374151'>—</span>"}</td>
+            <td style="text-align:right;padding:6px 10px;color:#67e8f9">${fmtC(c.gs)}</td>
+            <td style="text-align:right;padding:6px 10px;color:${c.days>0?"#a3e635":"#7d8590"}">${c.days}/${dates.length}</td>
+          </tr>`;}).join("")}
+        </tbody>
+        <tfoot><tr>
+          <td colspan="3" style="padding:8px 10px;color:#CC0000;font-weight:800">NETWORK TOTALS</td>
+          <td style="text-align:right;padding:8px 10px;color:#4ade80">${fmtC(GT.tot)}</td><td style="text-align:right;padding:8px 10px;color:#fbbf24">${fmtC(GT.plan)}</td>
+          <td style="text-align:right;padding:8px 10px;color:${vc(GT.vPlan)}">${fmtC(GT.vPlan)}</td><td style="text-align:right;padding:8px 10px;color:#60a5fa">${fmtC(GT.ly)}</td>
+          <td style="text-align:right;padding:8px 10px;color:${vc(GT.vLY)}">${fmtC(GT.vLY)}</td><td style="text-align:right;padding:8px 10px;color:#67e8f9">${fmtC(GT.gs)}</td><td></td>
+        </tr></tfoot>
+      </table></div></div>`;
+  } else if(tab==="lyplan"){
+    el.innerHTML=`<div style="padding:16px">
+      <div style="background:#1f0a0a;border:1px solid #CC0000;border-radius:6px;padding:10px 16px;margin-bottom:14px;font-size:12px;color:#fca5a5;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <span>🔒 LY & Plan for FY${fy} P${period} · ${pInfo?.label} (${fmtRange(pInfo)}, ${pInfo?.weeks} weeks)</span>
+        <button class="btn" style="background:#CC0000" onclick="saveLyPlan('${mKey}')">💾 Save All</button>
+      </div>
+      ${Object.entries(REGIONS).map(([rKey,rMgr])=>`
+        <div style="margin-bottom:14px">
+          <div style="font-size:11px;color:#7d8590;font-weight:700;letter-spacing:1px;padding:4px 0 6px">${rKey} — ${rMgr}</div>
+          ${STORES.filter(s=>s.region===rKey).map(s=>{
+            const lp=loadData(`adm:${mKey}:${s.id}`);
+            return`<details style="margin-bottom:5px">
+              <summary>${s.name} <span style="color:#7d8590;font-weight:400;font-size:12px">· ${s.manager}</span><span style="color:#7d8590;font-size:11px;font-weight:400">▼</span></summary>
+              <div style="background:#0d1117;border:1px solid #21262d;border-top:none;border-radius:0 0 6px 6px;padding:10px;overflow-x:auto">
+                <table style="width:auto">
+                  <thead><tr style="background:#1c0a0a"><th style="text-align:left;color:#fca5a5;padding:5px 12px;border-bottom:1px solid #CC0000">Date</th><th style="text-align:right;color:#fca5a5;padding:5px 10px;border-bottom:1px solid #CC0000">LY Sales</th><th style="text-align:right;color:#86efac;padding:5px 10px;border-bottom:1px solid #CC0000">Plan</th></tr></thead>
+                  <tbody>
+                    ${dates.map((d,i)=>{const ds=fmtDate(d),a=(lp[ds])||{};return`<tr style="background:${i%2===0?"#110808":"#150a0a"};border-bottom:1px solid #1f1010">
+                      <td style="padding:2px 12px;color:#d1d5db;white-space:nowrap;font-size:12px">${ds}</td>
+                      <td style="padding:2px 6px;text-align:right"><input class="adm-ly" type="number" value="${a.ly||""}" onchange="updateLyPlan('${s.id}','${ds}','ly',this.value,'${mKey}')" placeholder="0.00"></td>
+                      <td style="padding:2px 6px;text-align:right"><input class="adm-plan" type="number" value="${a.plan||""}" onchange="updateLyPlan('${s.id}','${ds}','plan',this.value,'${mKey}')" placeholder="0.00"></td>
+                    </tr>`;}).join("")}
+                  </tbody>
+                </table>
+              </div>
+            </details>`;
+          }).join("")}
+        </div>`).join("")}
+    </div>`;
+  } else if(tab==="import"){
+    renderImportTab(el,fy,period,dates,pInfo);
+  } else {
+    el.innerHTML=`<div style="padding:16px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:14px;color:#c8d0e8">👥 User Management</div>
+      <div class="card" style="margin-bottom:20px">
+        <div style="font-size:12px;font-weight:600;color:#7d8590;margin-bottom:10px">ADD NEW USER</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <div><div style="font-size:10px;color:#7d8590;margin-bottom:3px">FULL NAME</div><input type="text" id="nu-name" placeholder="Jane Smith" style="width:150px;text-align:left;background:#0d1117;color:#e6edf3;border:1px solid #21262d;border-radius:4px;padding:5px 8px;font-size:12px"></div>
+          <div><div style="font-size:10px;color:#7d8590;margin-bottom:3px">EMAIL</div><input type="text" id="nu-email" placeholder="jane@cgexchange.org" style="width:200px;text-align:left;background:#0d1117;color:#e6edf3;border:1px solid #21262d;border-radius:4px;padding:5px 8px;font-size:12px"></div>
+          <div><div style="font-size:10px;color:#7d8590;margin-bottom:3px">ROLE</div><select id="nu-role" onchange="renderUserRoleFields()"><option value="manager">Manager</option><option value="lead">Lead</option><option value="admin">Admin</option></select></div>
+          <div id="nu-extra"></div>
+          <button class="btn" style="background:#003087" onclick="addUser()">+ Add User</button>
+        </div>
+      </div>
+      <table>
+        <thead><tr style="background:#0e1e50"><th style="text-align:left">Name</th><th style="text-align:left">Email</th><th style="text-align:left">Role</th><th style="text-align:left">Store / Region</th><th></th></tr></thead>
+        <tbody id="user-table-body"></tbody>
+      </table>
+    </div>`;
+    renderUserTable();
+  }
 }
+
+// ─── LY/PLAN HELPERS ─────────────────────────────────────────
+window._lyPlanBuffer={};
+function updateLyPlan(storeId,ds,field,val,mKey){
+  if(!window._lyPlanBuffer[storeId])window._lyPlanBuffer[storeId]={};
+  if(!window._lyPlanBuffer[storeId][ds])window._lyPlanBuffer[storeId][ds]={};
+  window._lyPlanBuffer[storeId][ds][field]=val;
+}
+function saveLyPlan(mKey){
+  for(const[sid,days]of Object.entries(window._lyPlanBuffer||{})){
+    const existing=loadData(`adm:${mKey}:${sid}`);
+    for(const[ds,fields]of Object.entries(days)){existing[ds]={...(existing[ds]||{}),...fields};}
+    saveData(`adm:${mKey}:${sid}`,existing);
+  }
+  window._lyPlanBuffer={};
+  alert("LY & Plan saved!");
+}
+
+// ─── CHART HELPERS ───────────────────────────────────────────
+function renderBarChart(storeCalc){
+  const data=Object.entries(REGIONS).map(([rKey])=>{
+    const rS=STORES.filter(s=>s.region===rKey);
+    return{r:rKey.replace("Region ","R"),s:rS.reduce((a,s)=>a+storeCalc(s.id).tot,0),l:rS.reduce((a,s)=>a+storeCalc(s.id).ly,0)};
+  });
+  const max=Math.max(...data.map(d=>Math.max(d.s,d.l)),1);
+  return data.map(d=>`
+    <div style="display:flex;flex-direction:column;align-items:center;flex:1;gap:2px">
+      <div style="width:100%;display:flex;gap:2px;align-items:flex-end;height:160px">
+        <div style="flex:1;background:#003087;border-radius:3px 3px 0 0;height:${(d.s/max*100)}%" title="Sales: ${fmtC(d.s)}"></div>
+        <div style="flex:1;background:#60a5fa;border-radius:3px 3px 0 0;height:${(d.l/max*100)}%" title="LY: ${fmtC(d.l)}"></div>
+      </div>
+      <div style="font-size:10px;color:#7d8590">${d.r}</div>
+    </div>`).join("");
+}
+function renderProgressBars(storeCalc,dates){
+  return Object.entries(REGIONS).map(([rKey,rMgr])=>{
+    const rS=STORES.filter(s=>s.region===rKey);
+    const reporting=rS.filter(s=>storeCalc(s.id).days>0).length;
+    const pct=Math.round(reporting/rS.length*100);
+    return`<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="color:#c8d0e8">${rKey}</span><span style="color:#7d8590">${reporting}/${rS.length}</span></div>
+      <div style="background:#21262d;border-radius:4px;height:8px"><div style="background:${pct===100?"#4ade80":"#003087"};border-radius:4px;height:8px;width:${pct}%;transition:width 0.3s"></div></div>
+    </div>`;
+  }).join("");
+}
+
+// ─── IMPORT TAB ──────────────────────────────────────────────
+function renderImportTab(el,globalFy,globalPeriod,dates,pInfo){
+  window._importState=window._importState||{tgtFy:globalFy,tgtPeriod:globalPeriod,rows:[],headers:[],storeCol:"",dateCol:"",lyCol:"",planCol:"",srcInfo:null,result:null};
+  const st=window._importState;
+  const tgtInfo=getFiscalPeriods(st.tgtFy)[st.tgtPeriod-1];
+
+  el.innerHTML=`<div style="padding:16px">
+    <div style="font-size:13px;font-weight:600;margin-bottom:4px;color:#c8d0e8">📥 Import from Mi9 Excel Report</div>
+    <div style="font-size:12px;color:#7d8590;margin-bottom:12px">Handles Mi9 format — $values, (negatives), YYYY/MM/DD dates, 4-5-4 day-position mapping</div>
+
+    <div style="background:#0d1a2a;border:1px solid #1e3a5a;border-radius:6px;padding:12px 14px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:#93c5fd;margin-bottom:10px;letter-spacing:1px">📅 TARGET PERIOD — where should this data be saved as LY?</div>
+      <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+        <div><div style="font-size:10px;color:#7d8590;margin-bottom:3px">FISCAL YEAR</div>
+          <select onchange="window._importState.tgtFy=+this.value;setAdminTab('import')">${[2025,2026,2027].map(y=>`<option value="${y}"${y===st.tgtFy?" selected":""}>${y}</option>`).join("")}</select></div>
+        <div><div style="font-size:10px;color:#7d8590;margin-bottom:3px">PERIOD</div>
+          <select style="min-width:220px" onchange="window._importState.tgtPeriod=+this.value;setAdminTab('import')">${getFiscalPeriods(st.tgtFy).map(p=>`<option value="${p.num}"${p.num===st.tgtPeriod?" selected":""}>${p.quarter} · P${p.num} ${p.label} (${fmtRange(p)})</option>`).join("")}</select></div>
+        <div style="font-size:12px;color:#4ade80;padding-bottom:4px">→ Saving as LY into: <strong>FY${st.tgtFy} P${st.tgtPeriod} ${tgtInfo?.label}</strong> (${tgtInfo?fmtRange(tgtInfo):""})</div>
+      </div>
+      ${st.srcInfo?`<div style="font-size:11px;color:#fbbf24;margin-top:8px">✓ Source detected: <strong>FY${st.srcInfo.fy} P${st.srcInfo.period} ${st.srcInfo.info.label}</strong> (${fmtRange(st.srcInfo.info)}) → auto-set target to FY${st.srcInfo.fy+1} P${st.srcInfo.period}</div>`:""}
+    </div>
+
+    <div class="drop-zone${window._importDragOver?" over":""}" id="import-drop" onclick="document.getElementById('import-file').click()" ondragover="event.preventDefault();window._importDragOver=true;document.getElementById('import-drop').classList.add('over')" ondragleave="window._importDragOver=false;document.getElementById('import-drop').classList.remove('over')" ondrop="event.preventDefault();window._importDragOver=false;document.getElementById('import-drop').classList.remove('over');handleImportFile(event.dataTransfer.files[0])">
+      <div style="font-size:26px;margin-bottom:6px">📂</div>
+      <div style="font-size:14px;color:#e6edf3;margin-bottom:8px">Drag & drop your Mi9 regional Excel file here</div>
+      <div style="background:#003087;color:#fff;padding:7px 18px;border-radius:5px;display:inline-block;cursor:pointer;font-size:13px;font-weight:600">Browse File</div>
+      <input type="file" id="import-file" accept=".xlsx,.xls" style="display:none" onchange="handleImportFile(this.files[0])">
+      <div style="font-size:11px;color:#7d8590;margin-top:8px">Supports .xlsx · One file per region · All stores imported at once</div>
+    </div>
+
+    ${st.headers.length?`
+    <div class="card" style="margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:#7d8590;margin-bottom:10px;letter-spacing:1px">COLUMN MAPPING — <span style="color:#fbbf24">For FY26 LY: select "Sales Retail TY" as the LY column</span></div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+        ${[["Store # Column","storeCol","#a3e635","e.g. 201"],["Date Column","dateCol","#e6edf3","e.g. 2025/04/06"],["LY Sales Column","lyCol","#60a5fa","Sales Retail TY for FY26"],["Plan / Reference","planCol","#fbbf24","optional"]].map(([l,key,c,note])=>`
+          <div><div style="font-size:10px;color:${c};margin-bottom:2px;font-weight:600">${l}</div><div style="font-size:9px;color:#7d8590;margin-bottom:4px">${note}</div>
+            <select style="width:100%" onchange="window._importState.${key}=this.value;setAdminTab('import')">
+              <option value="">None</option>
+              ${st.headers.map(h=>`<option value="${h}"${h===st[key]?" selected":""}>${h}</option>`).join("")}
+            </select>
+          </div>`).join("")}
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:14px;overflow-x:auto">
+      <div style="font-size:11px;font-weight:700;color:#7d8590;margin-bottom:8px;letter-spacing:1px">PREVIEW — FIRST 5 ROWS</div>
+      <table style="font-size:11px">
+        <thead><tr style="background:#0e1e50">${st.headers.map(h=>`<th style="padding:4px 8px;color:${h===st.lyCol?"#60a5fa":h===st.planCol?"#fbbf24":h===st.storeCol||h===st.dateCol?"#a3e635":"#555"};font-weight:600;border-bottom:1px solid #CC0000;white-space:nowrap">${h}</th>`).join("")}</tr></thead>
+        <tbody>${st.rows.slice(0,5).map((r,i)=>`<tr style="background:${i%2===0?"#161b22":"#1c2333"};border-bottom:1px solid #21262d">${st.headers.map(h=>`<td style="padding:3px 8px;color:#e6edf3;white-space:nowrap">${r[h]}</td>`).join("")}</tr>`).join("")}</tbody>
+      </table>
+      <div style="font-size:11px;color:#7d8590;margin-top:6px">📊 ${st.rows.length.toLocaleString()} rows · ${[...new Set(st.rows.map(r=>String(r[st.storeCol]||"").split(/[\s\-]/)[0].replace(/\D/g,"")))].filter(id=>STORES.find(s=>s.id===id)).length} stores recognized</div>
+    </div>
+    ${st.result?`
+    <div style="background:#0a1f0a;border:1px solid #1e3a1e;border-radius:8px;padding:14px">
+      <div style="font-size:14px;font-weight:700;color:#4ade80;margin-bottom:6px">✅ Import Complete!</div>
+      <div style="font-size:13px;color:#c8d0e8;margin-bottom:4px"><strong style="color:#4ade80">${st.result.matched}</strong> days imported across <strong style="color:#4ade80">${st.result.stores}</strong> stores → FY${st.tgtFy} P${st.tgtPeriod}</div>
+      <div style="font-size:12px;color:#7d8590;margin-bottom:6px">${st.result.storeNames?.join(", ")}</div>
+      <div style="font-size:12px;color:#fbbf24;margin-bottom:4px">⚠️ Store managers need to click 🔄 Refresh to see updated LY data.</div>
+      ${st.result.skipped>0?`<div style="font-size:12px;color:#f87171">⚠️ ${st.result.skipped} rows skipped</div>`:""}
+      <button class="btn" style="background:#21262d;color:#7d8590;margin-top:10px" onclick="window._importState={tgtFy:${globalFy},tgtPeriod:${globalPeriod},rows:[],headers:[],storeCol:'',dateCol:'',lyCol:'',planCol:'',srcInfo:null,result:null};setAdminTab('import')">Upload Another Region</button>
+    </div>`:`
+    <button class="btn" style="background:${st.storeCol&&st.dateCol&&st.lyCol?"#003087":"#21262d"};opacity:${st.storeCol&&st.dateCol&&st.lyCol?1:0.5};font-size:14px;padding:10px 24px" onclick="doImport()" ${!st.storeCol||!st.dateCol||!st.lyCol?"disabled":""}>
+      📥 Import ${st.rows.length} rows → FY${st.tgtFy} P${st.tgtPeriod}
+    </button>`}`:""}
+  </div>`;
+}
+
+function handleImportFile(f){
+  if(!f)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const wb=XLSX.read(e.target.result,{type:"array"});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const data=XLSX.utils.sheet_to_json(ws,{raw:false,defval:""});
+    if(!data.length)return;
+    const hdrs=Object.keys(data[0]);
+    const sc=hdrs.find(h=>/^store/i.test(h.trim()))||hdrs[0]||"";
+    const dc=hdrs.find(h=>/date/i.test(h))||"";
+    const lc=hdrs.find(h=>/retail\s*ty|sales\s*ty/i.test(h))||hdrs.find(h=>/\bty\b/i.test(h))||"";
+    const pc=hdrs.find(h=>/retail\s*ly|sales\s*ly/i.test(h))||hdrs.find(h=>/\bly\b/i.test(h))||"";
+    const dates=data.map(r=>parseImpDate(r[dc])).filter(Boolean);
+    let srcInfo=null;
+    for(let y=2023;y<=2026;y++){const ps=getFiscalPeriods(y);for(const p of ps){const inP=dates.filter(d=>d>=p.start&&d<=p.end);if(inP.length/dates.length>0.7){srcInfo={fy:y,period:p.num,info:p};break;}}}
+    window._importState={...window._importState,rows:data,headers:hdrs,storeCol:sc,dateCol:dc,lyCol:lc,planCol:pc,srcInfo,result:null};
+    if(srcInfo){window._importState.tgtFy=srcInfo.fy+1;window._importState.tgtPeriod=srcInfo.period;}
+    setAdminTab("import");
+  };
+  reader.readAsArrayBuffer(f);
+}
+
+function parseImpDate(v){
+  if(!v)return null;
+  const s=String(v).trim();
+  const iso=s.match(/^(\d{4})[\/\-](\d{2})[\/\-](\d{2})$/);
+  if(iso)return new Date(+iso[1],+iso[2]-1,+iso[3]);
+  const us=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(us)return new Date(+us[3],+us[1]-1,+us[2]);
+  const d=new Date(s);return isNaN(d)?null:d;
+}
+function parseImpVal(v){
+  if(!v&&v!==0)return 0;
+  const s=String(v).trim(),neg=s.startsWith("(")||s.startsWith("-");
+  return neg?-(parseFloat(s.replace(/[()\-$,\s]/g,""))||0):(parseFloat(s.replace(/[$,\s]/g,""))||0);
+}
+
+function doImport(){
+  const st=window._importState;
+  const targetDates=getDatesForPeriod(st.tgtFy,st.tgtPeriod);
+  const mKey=`fy${st.tgtFy}-p${st.tgtPeriod}`;
+  const byStore={};
+  for(const row of st.rows){
+    const storeRaw=String(row[st.storeCol]||"").trim();
+    const storeId=storeRaw.split(/[\s\-]/)[0].replace(/\D/g,"");
+    const store=STORES.find(s=>s.id===storeId);if(!store)continue;
+    const date=parseImpDate(row[st.dateCol]);if(!date)continue;
+    if(!byStore[store.id])byStore[store.id]=[];
+    byStore[store.id].push({date,ly:parseImpVal(row[st.lyCol]),plan:parseImpVal(row[st.planCol])});
+  }
+  for(const sid of Object.keys(byStore))byStore[sid].sort((a,b)=>a.date-b.date);
+  let matched=0,skipped=0;const saveD={};
+  for(const[sid,srows]of Object.entries(byStore)){
+    saveD[sid]={};
+    srows.forEach((row,i)=>{
+      const td=targetDates[i];if(!td){skipped++;return;}
+      saveD[sid][fmtDate(td)]={ly:row.ly,plan:row.plan};matched++;
+    });
+  }
+  for(const[sid,data]of Object.entries(saveD))saveData(`adm:${mKey}:${sid}`,data);
+  window._importState.result={matched,skipped,stores:Object.keys(saveD).length,storeNames:Object.keys(saveD).map(id=>STORES.find(s=>s.id===id)?.name).filter(Boolean)};
+  setAdminTab("import");
+}
+
+// ─── USER MANAGEMENT ─────────────────────────────────────────
+window._users=JSON.parse(sessionStorage.getItem("cgx-users")||"[]");
+function renderUserRoleFields(){
+  const role=document.getElementById("nu-role")?.value;
+  const el=document.getElementById("nu-extra");if(!el)return;
+  if(role==="manager"||role==="lead"){
+    el.innerHTML=`<div><div style="font-size:10px;color:#7d8590;margin-bottom:3px">STORE</div><select id="nu-store"><option value="">Select store...</option>${STORES.map(s=>`<option value="${s.id}">${s.name}</option>`).join("")}</select></div>`;
+  } else {
+    el.innerHTML=`<div><div style="font-size:10px;color:#7d8590;margin-bottom:3px">REGION</div><select id="nu-region"><option value="">All Regions</option>${Object.entries(REGIONS).map(([k,v])=>`<option value="${k}">${k} — ${v}</option>`).join("")}</select></div>`;
+  }
+}
+function addUser(){
+  const name=document.getElementById("nu-name")?.value;
+  const email=document.getElementById("nu-email")?.value;
+  const role=document.getElementById("nu-role")?.value;
+  if(!name||!email)return;
+  const storeId=document.getElementById("nu-store")?.value||"";
+  const region=document.getElementById("nu-region")?.value||"";
+  window._users.push({id:`u-${Date.now()}`,name,email,role,storeId,region});
+  sessionStorage.setItem("cgx-users",JSON.stringify(window._users));
+  setAdminTab("users");
+}
+function removeUser(id){
+  window._users=window._users.filter(u=>u.id!==id);
+  sessionStorage.setItem("cgx-users",JSON.stringify(window._users));
+  setAdminTab("users");
+}
+function renderUserTable(){
+  const ROLE_COLORS={admin:"#fbbf24",manager:"#60a5fa",lead:"#a3e635"};
+  const ROLE_LABELS={admin:"Admin",manager:"Manager",lead:"Lead"};
+  const tbody=document.getElementById("user-table-body");if(!tbody)return;
+  const allUsers=[
+    {id:"u-hq",name:"Ednali Serralta",email:"ednali.serralta@cgexchange.org",role:"admin",region:null,builtin:true},
+    {id:"u-r1",name:"Terri Amory",email:"terri.amory@cgexchange.org",role:"admin",region:"Region 1",builtin:true},
+    {id:"u-r2",name:"Michele Taylor",email:"michele.taylor@cgexchange.org",role:"admin",region:"Region 2",builtin:true},
+    {id:"u-r3",name:"Ty Lindsey",email:"ty.lindsey@cgexchange.org",role:"admin",region:"Region 3",builtin:true},
+    {id:"u-r4",name:"Nick Swango",email:"nick.swango@cgexchange.org",role:"admin",region:"Region 4",builtin:true},
+    {id:"u-r5",name:"Melissa Lacambra",email:"melissa.lacambra@cgexchange.org",role:"admin",region:"Region 5",builtin:true},
+    {id:"u-r6",name:"Jennifer Liston",email:"jennifer.liston@cgexchange.org",role:"admin",region:"Region 6",builtin:true},
+    ...window._users
+  ];
+  tbody.innerHTML=allUsers.map((u,i)=>{
+    const store=STORES.find(s=>s.id===u.storeId);
+    return`<tr style="background:${i%2===0?"#161b22":"#1c2333"};border-bottom:1px solid #21262d">
+      <td style="padding:7px 10px;font-weight:600">${u.name}</td>
+      <td style="padding:7px 10px;color:#7d8590;font-size:12px">${u.email}</td>
+      <td style="padding:7px 10px"><span style="background:${ROLE_COLORS[u.role]}22;color:${ROLE_COLORS[u.role]};font-size:11px;padding:2px 8px;border-radius:10px;border:1px solid ${ROLE_COLORS[u.role]}44">${ROLE_LABELS[u.role]}</span></td>
+      <td style="padding:7px 10px;color:#7d8590;font-size:12px">${store?store.name:u.region||"All Regions"}</td>
+      <td style="padding:7px 10px">${u.builtin?`<span style="color:#374151;font-size:11px">Built-in</span>`:`<button onclick="removeUser('${u.id}')" style="background:#2a1010;color:#f87171;border:1px solid #3a1010;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px">Remove</button>`}</td>
+    </tr>`;
+  }).join("");
+}
+</script>
+</body>
+</html>
